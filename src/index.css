@@ -1,0 +1,147 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Design tokens. Warm, dim, dark-academia. Tailwind v4 reads these directly,
+   so `bg-ink-900`, `text-parchment`, `font-serif` etc. all work.
+--------------------------------------------------------------------------- */
+@theme {
+  --color-ink-900: #14100c;
+  --color-ink-800: #1c1712;
+  --color-ink-700: #262019;
+  --color-ink-600: #352c22;
+  --color-ink-500: #4a3d2f;
+
+  --color-parchment: #f2e7d3;
+  --color-parchment-dim: #cbbda3;
+  --color-brass: #c39a4e;
+  --color-brass-bright: #e2bd74;
+  --color-ember: #b8623f;
+
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --radius-panel: 0.75rem;
+}
+
+/* Touch-first devices, for the handful of rules that differ there: bigger hit
+   areas, and controls sized for a thumb rather than a cursor. Matches the
+   media query `useIsCoarsePointer` watches, so CSS and JS agree on "mobile". */
+@custom-variant coarse (@media (pointer: coarse));
+
+/* How much room the touch tab bar takes at the bottom of the screen: its own
+   height plus the padding the HUD sits in. A screen that shares the viewport
+   with it - a tab destination - has to end above it, and only one number should
+   decide that. Kept in step with the `h-14` bar in `LibraryHud`. */
+:root {
+  --tab-bar-height: 4.25rem;
+}
+
+/* Padding that clears the notch, the home indicator and a rounded corner.
+   `viewport-fit=cover` in index.html is what puts the app under them. */
+@utility inset-safe {
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Ends above the tab bar rather than behind it. */
+@utility pb-tabbar {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--tab-bar-height));
+}
+
+html {
+  /* `dvh`, not `vh`: mobile Safari's `vh` is the tallest the viewport ever
+     gets, so a full-height app renders its last rows under the toolbar. */
+  height: 100dvh;
+}
+
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink-900);
+  color: var(--color-parchment);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  /* Stops iOS inflating text in the HUD when the phone is turned sideways. */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* The canvas handles its own gestures. Without this the browser claims a drag
+   for scrolling and a pinch for page zoom, and looking around never starts. */
+canvas {
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Keyboard focus stays visible everywhere - the app is usable without a mouse. */
+:focus-visible {
+  outline: 2px solid var(--color-brass-bright);
+  outline-offset: 2px;
+}
+
+/* A tap should not leave a grey box over a button for a quarter of a second. */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A cover that has not arrived yet.
+   Only ever used where the final size is already known from layout, so filling
+   it in does not move anything on the page - a skeleton that reflows when the
+   image lands is worse than the grey box it replaced. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-ink-700);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(242 231 211 / 0.06), transparent);
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Thin, warm scrollbars inside panels. */
+.scroll-warm {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-500) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Stopped outright rather than clamped: an infinite animation squeezed into
+     0.01ms is a loop running as fast as the browser will let it. */
+  .skeleton::after {
+    animation: none !important;
+  }
+}

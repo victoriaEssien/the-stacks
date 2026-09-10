@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="The Stacks">
+  <rect width="512" height="512" fill="#14100c"/>
+  <!-- Kept well inside the middle 80%, so a maskable circle does not crop it. -->
+  <g transform="translate(146 138)">
+    <rect x="0" y="16" width="46" height="220" rx="9" fill="#c39a4e"/>
+    <rect x="58" y="38" width="42" height="198" rx="9" fill="#7a3b32"/>
+    <rect x="110" y="0" width="42" height="236" rx="9" fill="#3f5a4a"/>
+    <rect x="164" y="46" width="42" height="190" rx="9" fill="#2f4358"/>
+  </g>
+</svg>

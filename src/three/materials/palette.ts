@@ -1,0 +1,20 @@
+/** One place for the room's colours, so the whole scene stays in key. */
+export const PALETTE = {
+  floor: '#4d3726',
+  rug: '#5a3730',
+  rugTrim: '#7a4c40',
+  wall: '#453a30',
+  ceiling: '#332a22',
+  woodDark: '#5b4231',
+  woodMid: '#7d5a3f',
+  woodLight: '#96704a',
+  brass: '#c39a4e',
+  paper: '#e8dcc4',
+  lampWarm: '#ffc98a',
+  leather: '#6d4030',
+  terracotta: '#96543a',
+  foliage: '#4a6b48',
+  foliageDeep: '#33513a',
+  nightSky: '#26364d',
+  bookSpines: ['#7a3b32', '#3f5a4a', '#2f4358', '#6b4a7a', '#8a6a2f', '#5a3b2a', '#37474f'],
+} as const;
