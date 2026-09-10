@@ -1,0 +1,7 @@
+# LF in the repository AND LF in the working copy, on every platform.
+#
+# Git for Windows checks out CRLF by default, so a fresh clone would fail
+# `pnpm format:check` on every file - Prettier defaults to `endOfLine: "lf"`
+# and .prettierrc.json does not override it. `text=auto` still leaves files it
+# detects as binary (the PNG icons in public/) untouched.
+* text=auto eol=lf
