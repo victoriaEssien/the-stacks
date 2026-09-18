@@ -129,6 +129,13 @@ no visitor has anything to sign in to, and it invites poking at the one door.
 The owner opens the form at **`/#signin`**. Worth bookmarking, because nothing
 on screen points at it.
 
+**It is a one-time code by email, not a password.** The account Neon's console
+creates has no password at all, only a `credential` row with a null hash, so
+email-and-password sign-in could never have succeeded. A code also beats a magic
+link here: the link needs its redirect handled somewhere, while a code stays in
+the dialog the reader is already looking at. The project is configured for it
+already (`emailVerificationMethod: "otp"`, shared email provider).
+
 This is not a security measure and is not relied on as one. Anyone who guesses
 the fragment finds a password form, exactly as they would on any login page; the
 password and Row-Level Security are what protect the library. The fragment is
@@ -179,6 +186,15 @@ The scan only runs for a signed-in owner. A visitor's own localStorage is none
 of this library's business, and nothing could be written with it anyway.
 
 ## Still to decide
+
+- **Sign-up is still open.** `project_config.email_and_password.disableSignUp`
+  is `false`, so anyone can create an account. RLS pins writes to one user id so
+  a stranger could not touch the library, but there is no reason to leave the
+  door unlocked. Turn it off in the console.
+- **`trusted_origins` is empty.** `allow_localhost` is true so development
+  works, but the production origin has to be added there before a deployed build
+  can sign in. The auth server rejects a request whose `Origin` it does not
+  know, which is also why none of this can be tested from Node.
 
 - **Hosting.** Nothing is deployed yet, so "people coming in" cannot happen
   regardless of storage. Vercel is the least work for a Vite SPA.

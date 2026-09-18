@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { authAvailable, currentSession, signIn, signOut, type OwnerSession } from '@/services/neon';
+import {
+  authAvailable,
+  currentSession,
+  requestSignInCode,
+  signInWithCode,
+  signOut,
+  type OwnerSession,
+} from '@/services/neon';
 import type { AppError } from '@/utils/result';
 
 interface AuthState {
@@ -8,10 +15,14 @@ interface AuthState {
   loadState: 'idle' | 'loading' | 'ready';
   busy: boolean;
   error?: AppError;
+  /** True once a code has been sent, so the form asks for it. */
+  codeSent: boolean;
 
   restore: () => Promise<void>;
-  signIn: (email: string, password: string) => Promise<boolean>;
+  requestCode: (email: string) => Promise<boolean>;
+  submitCode: (email: string, code: string) => Promise<boolean>;
   signOut: () => Promise<void>;
+  reset: () => void;
   clearError: () => void;
 }
 
@@ -28,6 +39,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   loadState: 'idle',
   busy: false,
+  codeSent: false,
 
   restore: async () => {
     set({ loadState: 'loading' });
@@ -41,22 +53,35 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
 
-  signIn: async (email, password) => {
+  requestCode: async (email) => {
     set({ busy: true, error: undefined });
-    const result = await signIn(email, password);
+    const result = await requestSignInCode(email);
     if (!result.ok) {
       set({ busy: false, error: result.error });
       return false;
     }
-    set({ session: result.value, busy: false, loadState: 'ready' });
+    set({ busy: false, codeSent: true });
+    return true;
+  },
+
+  submitCode: async (email, code) => {
+    set({ busy: true, error: undefined });
+    const result = await signInWithCode(email, code);
+    if (!result.ok) {
+      set({ busy: false, error: result.error });
+      return false;
+    }
+    set({ session: result.value, busy: false, loadState: 'ready', codeSent: false });
     return true;
   },
 
   signOut: async () => {
     set({ busy: true });
     await signOut();
-    set({ session: undefined, busy: false, error: undefined });
+    set({ session: undefined, busy: false, error: undefined, codeSent: false });
   },
+
+  reset: () => set({ codeSent: false, error: undefined, busy: false }),
 
   clearError: () => set({ error: undefined }),
 }));

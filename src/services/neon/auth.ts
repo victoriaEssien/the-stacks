@@ -49,10 +49,9 @@ const refusalOrOutage = (cause: unknown) => {
     return appError('rate_limited', 'Too many attempts. Wait a moment, then try again.', cause);
   }
   if (status !== undefined && status >= 400 && status < 500) {
-    // Deliberately not saying WHICH was wrong: distinguishing "no such
-    // account" from "wrong password" confirms to a stranger whether a given
-    // address holds this library.
-    return appError('forbidden', 'That email and password did not match.', cause);
+    // Deliberately vague: saying whether an address has an account here would
+    // confirm to a stranger whose library this is.
+    return appError('forbidden', 'That code did not work. Ask for a new one.', cause);
   }
   return unreachable(cause);
 };
@@ -71,14 +70,37 @@ export const currentSession = async (): Promise<Result<OwnerSession | undefined>
   }
 };
 
-export const signIn = async (email: string, password: string): Promise<Result<OwnerSession>> => {
+/**
+ * Ask for a one-time code by email.
+ *
+ * A code rather than a password, because the account the Neon console creates
+ * has no password at all - only a `credential` row with a null hash - and a
+ * single-owner library gains nothing from one. A code also beats a magic link
+ * here: the link needs a redirect handled somewhere, while a code stays in the
+ * dialog the reader is already looking at.
+ */
+export const requestSignInCode = async (email: string): Promise<Result<void>> => {
   const client = neonClient();
   if (!client) {
     return err(appError('unknown', 'This library is not connected to a database.'));
   }
 
   try {
-    const { error } = await client.auth.signIn.email({ email, password });
+    const { error } = await client.auth.emailOtp.sendVerificationOtp({ email, type: 'sign-in' });
+    return error ? err(refusalOrOutage(error)) : ok(undefined);
+  } catch (cause) {
+    return err(refusalOrOutage(cause));
+  }
+};
+
+export const signInWithCode = async (email: string, otp: string): Promise<Result<OwnerSession>> => {
+  const client = neonClient();
+  if (!client) {
+    return err(appError('unknown', 'This library is not connected to a database.'));
+  }
+
+  try {
+    const { error } = await client.auth.signIn.emailOtp({ email, otp });
     if (error) return err(refusalOrOutage(error));
   } catch (cause) {
     return err(refusalOrOutage(cause));
