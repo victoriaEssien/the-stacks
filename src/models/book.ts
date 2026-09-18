@@ -56,6 +56,18 @@ export type NewBook = ExternalBook & Partial<ReadingRecord>;
 /** The subset a user may edit from the info panel. */
 export type BookEdits = Partial<ReadingRecord> & Partial<Pick<Book, 'coverImage'>>;
 
+/**
+ * How each status reads to someone else looking at the shelf.
+ *
+ * `read` is deliberately absent: it is the default a visitor assumes, so
+ * labelling it would put a badge on almost every cover for no information.
+ * Only the books that are NOT finished need saying out loud.
+ */
+export const UNFINISHED_STATUS_LABEL: Partial<Record<ReadingStatus, string>> = {
+  reading: 'Reading',
+  want_to_read: 'Want to read',
+};
+
 export const isReadingStatus = (value: unknown): value is ReadingStatus =>
   typeof value === 'string' && (READING_STATUSES as readonly string[]).includes(value);
 

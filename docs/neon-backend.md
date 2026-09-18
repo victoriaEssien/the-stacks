@@ -125,10 +125,13 @@ create table if not exists books (
   date_started     date,
   date_finished    date,
   status           text not null check (status in ('read', 'reading', 'want_to_read')),
-  rating           smallint check (rating between 1 and 5),
+  -- Not an integer: the model documents 0.5 to 5 in half steps.
+  rating           numeric(2, 1)
+                   check (rating in (0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)),
   thoughts         text,
   favorite_quote   text,
   would_recommend  boolean,
+  preview_url      text,
   source           text,
   source_id        text,
   created_at       timestamptz not null default now(),
@@ -151,6 +154,10 @@ create table if not exists suggestions (
 
 `published_date` stays `text` because providers return years, year-months and
 full dates interchangeably, and the model already treats it as a string.
+
+`suggestions.updated_at` has no counterpart on the model, which only carries
+`createdAt`. It is database-side bookkeeping; the mapper neither sends nor reads
+it.
 
 ## Grants and policies
 

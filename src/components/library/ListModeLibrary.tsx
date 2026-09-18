@@ -1,5 +1,5 @@
 import type { Book } from '@/models';
-import { authorLine } from '@/models';
+import { authorLine, UNFINISHED_STATUS_LABEL } from '@/models';
 import { BookCover } from '@/components/books/BookCover';
 import { EmptyState, StarRating } from '@/components/ui';
 
@@ -11,6 +11,12 @@ export interface ListModeLibraryProps {
 /**
  * The non-3D way in. Every book stays reachable on touch devices, on a screen
  * reader, and whenever WebGL is unavailable (spec section 16).
+ *
+ * Unlike the room, which shelves `read` books only, this lists everything -
+ * including what is being read now and what is only wanted. That is fine, and
+ * the shelf is public, but it means an unfinished book must SAY so: without a
+ * label it is indistinguishable from a finished one apart from a missing star
+ * rating, and a visitor reads every cover here as a book that was read.
  */
 export const ListModeLibrary = ({ books, onSelectBook }: ListModeLibraryProps) => (
   <div className="scroll-warm inset-safe h-full overflow-y-auto bg-ink-900">
@@ -37,6 +43,11 @@ export const ListModeLibrary = ({ books, onSelectBook }: ListModeLibraryProps) =
                   seed={book.id}
                   className="aspect-2/3 w-full transition-transform group-hover:-translate-y-1"
                 />
+                {UNFINISHED_STATUS_LABEL[book.status] && (
+                  <p className="mt-2 inline-block rounded-full border border-brass/40 px-2 py-0.5 text-[11px] leading-none text-brass">
+                    {UNFINISHED_STATUS_LABEL[book.status]}
+                  </p>
+                )}
                 <p className="mt-2 line-clamp-2 font-serif text-sm text-parchment">{book.title}</p>
                 <p className="line-clamp-1 text-xs text-parchment-dim">{authorLine(book)}</p>
                 {book.rating && (

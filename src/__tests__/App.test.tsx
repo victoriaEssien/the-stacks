@@ -60,6 +60,21 @@ describe('App', () => {
     expect(screen.getByText('1 book read')).toBeTruthy();
   });
 
+  it('marks a book that has not been read, so a visitor does not assume it was', async () => {
+    // The shelf is public and lists every status, unlike the room. Without this
+    // label an unstarted book looks exactly like a finished one.
+    const wanted = { ...BOOK, id: 'book_2', title: 'Still On The Pile', status: 'want_to_read' };
+    localStorage.setItem('the-stacks:books:v1', JSON.stringify([BOOK, wanted]));
+
+    render(<App />);
+    expect(await screen.findByText('Still On The Pile')).toBeTruthy();
+    expect(screen.getByText('Want to read')).toBeTruthy();
+
+    // The finished one carries no badge; `read` is what a visitor assumes.
+    expect(screen.queryByText('Read')).toBeNull();
+    expect(screen.getByText('1 book read')).toBeTruthy();
+  });
+
   it('offers an empty state when there is nothing on the shelves', async () => {
     render(<App />);
     expect(await screen.findByText('No books yet')).toBeTruthy();
