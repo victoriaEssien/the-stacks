@@ -314,6 +314,39 @@ of them and the symptom comes straight back.
   fills the shelves with invented titles so the layout can be judged at a size
   the real library has not reached. Nothing imports it.
 
+## The link preview
+
+`index.html` carries Open Graph and Twitter card tags, and `public/og-cover.jpg`
+is the image they point at. Without them a shared link renders as a bare URL,
+which is a poor showing for a project whose whole point is that it looks like a
+room.
+
+- **The card is stocked with PLACEHOLDER books** from `src/data/seed.ts`, which
+  is a deliberate choice and the reason the app's own HUD is hidden in the shot:
+  the header carries a "books read" count, and a placeholder count on a card
+  about someone's real reading would be a lie. Nothing else in the image claims
+  anything.
+- `og:url` and `og:image` are ABSOLUTE and name the production domain, because a
+  crawler has no page to resolve a relative path against. A preview deployment
+  therefore advertises production's card. Previews are not shared, so that is
+  the right trade.
+- **To redraw it**, the same way the app icons are redrawn - headless Chrome,
+  no image library:
+  1. `VITE_NEON_URL= npx vite build --outDir dist-demo`, which drops the app
+     into localStorage mode so the render cannot touch the real library.
+  2. `npx vite preview --outDir dist-demo --port 4173`.
+  3. Drive Chrome over CDP: seed `the-stacks:books:v1` with ~140 placeholder
+     books, load the page, hide the HUD, screenshot, write
+     `public/og-cover.jpg` as JPEG at quality 88. Delete `dist-demo` after.
+- Two things about that render are not obvious. **Hide the HUD by walking up
+  from the `canvas` and hiding every sibling branch** - the shell's nesting
+  makes a selector list unreliable, and a wrong guess silently leaves the
+  header in the shot. And **render at 1200x1200 and crop the top 1200x630**:
+  at eye height a 1.75m bookcase sits BELOW the camera's centre line, so a
+  1200x630 viewport spends its lower half on bare floor. Cropping from the top
+  was arrived at after cropping from the middle produced a photograph of the
+  floorboards.
+
 ## Performance rules
 
 - Structural materials come from `three/materials/useSharedMaterials.ts`. Do not
