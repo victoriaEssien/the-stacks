@@ -52,6 +52,29 @@ describe('BookService', () => {
     expect(result.ok && result.value[0]?.title).toBe('Rescued');
   });
 
+  /**
+   * The app registers ONE search provider now, so there is nothing behind
+   * Google to quietly answer in its place. A failure has to reach the reader as
+   * a failure - the add dialog shows it with a retry - rather than as an empty
+   * result, which reads as "no such book" and is a lie.
+   */
+  it('surfaces the failure when the only provider fails', async () => {
+    const service = new BookService([
+      provider('google', async () => err(appError('rate_limited', 'too many'))),
+    ]);
+
+    const result = await service.search('anything');
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.kind).toBe('rate_limited');
+  });
+
+  it('still calls an empty result empty, not an error', async () => {
+    const service = new BookService([provider('google', async () => ok([]))]);
+
+    const result = await service.search('nothing matches this');
+    expect(result.ok && result.value).toEqual([]);
+  });
+
   it('caches identical queries instead of re-hitting the API', async () => {
     const search = vi.fn(async () => ok([sample('Cached')]));
     const service = new BookService([provider('a', search)]);
