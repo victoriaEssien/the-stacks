@@ -56,6 +56,9 @@ These come from the spec's agent instructions. Do not quietly break them.
    furniture stand, and deepens the room when the walls fill up. Nothing in
    `src/three/` should carry a hand-typed coordinate for a piece of furniture —
    add it to the plan instead, so collision and rendering cannot drift apart.
+   **Where the reader STANDS is part of that plan too** (`spawnPoint`,
+   `framedWidth`): it is pure geometry, it depends on the room, and it has to be
+   clamped against the same footprints collision uses.
 5. **Book sizes are derived deterministically** from page count and a hash of
    the book id (`utils/bookDimensions.ts`), so a book never changes size
    between renders or reloads. Books stand COVER-OUT, so `width` is the cover
@@ -283,6 +286,34 @@ of them and the symptom comes straight back.
   per frame cannot be raced. If picking ever starts opening the wrong book, look
   here first.
 
+## The room is furnished as a library
+
+- **Every wall the base room can hold a bookcase against gets one, whether or
+  not there is anything to put on it.** `furnishedCaseCount` is the minimum and
+  `baseRoomCapacity` computes it - four cases on the back wall and three on each
+  side, ten in total, fifty shelves. Not a chosen number: it is what the room's
+  own width and depth allow, and `requiredDepth` of it is still the base depth,
+  so furnishing the walls costs no extra room. A test asserts those two
+  calculations cannot drift apart.
+- The point is that this is a LIBRARY. One bookcase alone in a nine metre room
+  reads as an empty room with a bookcase in it, no matter how good the bookcase
+  is. Beyond the base capacity the old behaviour takes over and the room deepens.
+- **Furnishing the walls broke the spawn, and the fix is worth knowing.** Books
+  pack from the first case, and with one case that case was the middle of the
+  back wall; with ten it is the LEFT END of it. Following the books that far put
+  the reader in among the side-wall shelves with one filling half the screen.
+  `spawnPoint` now clamps both axes into the open floor, and a test walks every
+  screen shape past `isBlocked` with the real obstacle list to prove the reader
+  never arrives inside the furniture.
+- **`framedWidth` frames TWO bookcases, and that number was arrived at by
+  looking.** Framing the whole back run stands the reader so far back that the
+  shelves occupy the top third of the screen and the rest is floor; framing one
+  case reads as a single piece of furniture rather than a wall. Two is the
+  narrowest frame that reads as shelving.
+- `src/data/seed.ts` exists for exactly this kind of work: `placeholderBooks(n)`
+  fills the shelves with invented titles so the layout can be judged at a size
+  the real library has not reached. Nothing imports it.
+
 ## Performance rules
 
 - Structural materials come from `three/materials/useSharedMaterials.ts`. Do not
@@ -354,9 +385,13 @@ real Chrome, and they are the reason the loading states are where they are.
 
 ## Known gaps (deliberate)
 
-- The room's spawn aims at the FIRST BOOK rather than the middle of the case, so
-  a small collection sits off to one side with bare wall beside it. Deliberate on
-  a wide screen; it reads as emptier on a phone, where the view is narrower.
+- The spawn still leans towards the first book rather than centring on the room,
+  so a small collection sits left of centre. That is on purpose - the books are
+  the subject - but it means the right-hand half of the arrival view is empty
+  shelving.
+- In portrait the reader stands far enough back to get two cases across, and
+  because `fov` is vertical that leaves a tall band of bare wall above the
+  shelves. Pitching the camera down slightly would fix it; it has not been done.
 - `TouchControls` has no inertia on the look-drag and no way to walk backwards
   except tapping behind you - turn first, then tap.
 - The 3D layer has no automated coverage — jsdom has no WebGL, so `App.test.tsx`

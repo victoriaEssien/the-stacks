@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { ContactShadows } from '@react-three/drei';
 import { useThree, type ThreeEvent } from '@react-three/fiber';
 import type { Book } from '@/models';
-import { planLibrary, viewingDistance } from '@/utils/roomLayout';
+import { furnishedCaseCount, planLibrary, spawnPoint } from '@/utils/roomLayout';
 import { BASE_FOV, restingFov } from '@/utils/touchGestures';
 import {
   layOutBooks,
@@ -30,9 +30,6 @@ import { createTouchNavState, requestWalkTo } from './controls/touchNav';
  * the pointer type - see `useIsCoarsePointer`.
  */
 export type NavigationScheme = 'pointer-lock' | 'touch';
-
-/** How much wall the reader should be able to take in when they arrive. */
-const FRAMED_WIDTH = 3.2;
 
 export interface LibrarySceneProps {
   /** Books that live on the shelves - "read" only. */
@@ -101,7 +98,10 @@ export const LibraryScene = ({
   );
 
   const layout = useMemo(() => layOutBooks(shelvedBooks), [shelvedBooks]);
-  const plan = useMemo(() => planLibrary(layout.caseCount), [layout.caseCount]);
+  // `furnishedCaseCount` lines the walls with shelves whatever the collection
+  // needs, so the room reads as a library rather than as one bookcase in an
+  // empty hall. The books still pack from the first case.
+  const plan = useMemo(() => planLibrary(furnishedCaseCount(layout.caseCount)), [layout.caseCount]);
   const booksById = useMemo(
     () => new Map(shelvedBooks.map((book) => [book.id, book])),
     [shelvedBooks],
@@ -111,24 +111,16 @@ export const LibraryScene = ({
   const halfD = room.depth / 2;
   const windowPosition: [number, number, number] = [-room.width / 2 + 0.04, 1.65, halfD - 1.6];
 
-  // Stand the reader off the first bookcase, lined up with the first book
-  // rather than the middle of the case: books pack from the left of a shelf, so
-  // a small collection sits well off to one side. Far enough back to see the
-  // room, close enough that the books are the subject - and that distance is a
-  // function of the screen, not a constant, because a phone held upright sees
-  // less than half the width a laptop does.
+  // Where to stand is pure geometry, so it lives in the room plan: how much of
+  // the shelving to get in frame, and how far back that puts the reader on THIS
+  // screen shape.
   const aspect = viewport.width / Math.max(1, viewport.height);
-  const standOff = Math.max(
-    2.8,
-    viewingDistance(FRAMED_WIDTH, navigation === 'touch' ? restingFov(aspect) : BASE_FOV, aspect),
+  const spawn = spawnPoint(
+    plan,
+    navigation === 'touch' ? restingFov(aspect) : BASE_FOV,
+    aspect,
+    layout.placements[0]?.position[0],
   );
-
-  const firstCase = plan.cases[0];
-  const firstBook = layout.placements[0];
-  const spawn = {
-    x: (firstCase?.position[0] ?? 0) + (firstBook?.position[0] ?? 0),
-    z: Math.min(halfD - 1, (firstCase?.position[2] ?? 0) + standOff),
-  };
 
   return (
     <>

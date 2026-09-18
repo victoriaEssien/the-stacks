@@ -99,6 +99,34 @@ const backRunLength = () => ROOM_WIDTH - CORNER_INSET * 2;
 const sideRunLength = (depth: number) => depth - CORNER_INSET - FRONT_CLEARANCE;
 
 /**
+ * How many bookcases the base room can stand against its walls.
+ *
+ * Computed, not chosen: the back wall takes what the room's width allows, and
+ * each side wall takes what is left of its depth once the front clearance and
+ * the corner inset are removed.
+ */
+export const baseRoomCapacity = (config: ShelfConfig = DEFAULT_SHELF_CONFIG): number =>
+  runCapacity(backRunLength(), config) + 2 * runCapacity(sideRunLength(BASE_DEPTH), config);
+
+/**
+ * How many bookcases to actually build for a collection that needs `needed`.
+ *
+ * A library is a room LINED with shelves. It is not storage sized to its
+ * current contents, so the walls are furnished whether or not there is anything
+ * to put on them: one bookcase alone in a nine metre room reads as an empty
+ * room with a bookcase in it, which is not the thing being built. Beyond what
+ * the base room holds the old behaviour takes over and the room deepens.
+ *
+ * Kept out of `planLibrary` so that the planner keeps its exact contract - plan
+ * the number of cases you are asked for - and this policy stays separately
+ * testable. Callers compose the two.
+ */
+export const furnishedCaseCount = (
+  needed: number,
+  config: ShelfConfig = DEFAULT_SHELF_CONFIG,
+): number => Math.max(needed, baseRoomCapacity(config));
+
+/**
  * Room depth needed to stand `caseCount` bookcases against the walls. The back
  * wall is fixed by the room's width, so any overflow lengthens the side walls.
  */
@@ -113,6 +141,70 @@ export const requiredDepth = (
   const step = caseOuterWidth(config) + CASE_GAP;
   const needed = perSide * step - CASE_GAP + CORNER_INSET + FRONT_CLEARANCE;
   return Math.max(BASE_DEPTH, Number(needed.toFixed(3)));
+};
+
+/**
+ * How much of the room the reader should be able to see on arrival: two
+ * bookcases side by side, or the whole back wall when it is shorter than that.
+ *
+ * Two, specifically, because it is the narrowest frame that still reads as a
+ * WALL of shelves rather than as one piece of furniture. Framing the entire
+ * back run was tried and looks worse: it stands the reader far enough back that
+ * the shelves occupy the top third of the screen and the rest is floor.
+ */
+export const framedWidth = (
+  plan: LibraryPlan,
+  config: ShelfConfig = DEFAULT_SHELF_CONFIG,
+): number => {
+  const outer = caseOuterWidth(config);
+  const backX = plan.cases.filter((item) => item.rotation[1] === 0).map((item) => item.position[0]);
+  const backSpan = backX.length === 0 ? outer : Math.max(...backX) - Math.min(...backX) + outer;
+  return Math.min(outer * 2 + CASE_GAP, backSpan);
+};
+
+/** Never closer than this, however narrow the framing works out. */
+const MIN_STAND_OFF = 3.2;
+
+/**
+ * Where the reader stands when the library opens.
+ *
+ * Lined up with the first BOOK rather than the middle of its case, because
+ * books pack from the left of a shelf and a small collection would otherwise
+ * sit off to the side of wherever the camera looked.
+ *
+ * Both axes are clamped into the open floor. With the walls furnished the first
+ * case is the left END of the back wall, not its middle, so following the books
+ * that far would stand the reader in among the side-wall shelves. The clamp
+ * keeps them out in the room where they can see it, and they can walk over.
+ *
+ * `fov` is VERTICAL in three.js, so how much of the wall fits across depends
+ * entirely on the shape of the window - see `viewingDistance`. A phone held
+ * upright therefore starts further back than a laptop, not closer.
+ */
+export const spawnPoint = (
+  plan: LibraryPlan,
+  fovDegrees: number,
+  aspect: number,
+  firstBookOffsetX = 0,
+  config: ShelfConfig = DEFAULT_SHELF_CONFIG,
+): { x: number; z: number } => {
+  const firstCase = plan.cases[0];
+  const halfW = plan.room.width / 2;
+  const halfD = plan.room.depth / 2;
+
+  const standOff = Math.max(
+    MIN_STAND_OFF,
+    viewingDistance(framedWidth(plan, config), fovDegrees, aspect),
+  );
+
+  // Clear of the inner face of a side-wall run, with room to turn around.
+  const limitX = Math.max(0, halfW - caseOuterDepth(config) - WALL_GAP - 2.0);
+  const wanted = (firstCase?.position[0] ?? 0) + firstBookOffsetX;
+
+  return {
+    x: Math.min(limitX, Math.max(-limitX, wanted)),
+    z: Math.min(halfD - 1, (firstCase?.position[2] ?? 0) + standOff),
+  };
 };
 
 const footprintFor = (
