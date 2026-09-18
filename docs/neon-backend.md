@@ -105,110 +105,20 @@ flag a table that does not.
    Postgres connection string must never reach the client.
 7. Migrate the books out of `localStorage` (see below).
 
-## Schema
+## Schema and policies
 
-```sql
-create table if not exists books (
-  id               text primary key,
-  owner_id         text not null default auth.user_id(),
-  title            text not null,
-  authors          text[] not null default '{}',
-  description      text,
-  cover_image      text,
-  thumbnail_image  text,
-  isbn10           text,
-  isbn13           text,
-  publisher        text,
-  published_date   text,
-  page_count       integer,
-  categories       text[],
-  date_started     date,
-  date_finished    date,
-  status           text not null check (status in ('read', 'reading', 'want_to_read')),
-  -- Not an integer: the model documents 0.5 to 5 in half steps.
-  rating           numeric(2, 1)
-                   check (rating in (0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)),
-  thoughts         text,
-  favorite_quote   text,
-  would_recommend  boolean,
-  preview_url      text,
-  source           text,
-  source_id        text,
-  created_at       timestamptz not null default now(),
-  updated_at       timestamptz not null default now()
-);
+The runnable version lives in [`neon-schema.sql`](./neon-schema.sql). Paste that
+into the Neon SQL editor rather than copying out of this file. It is idempotent,
+so a failed run can be fixed and pasted again, and it ends with a check that RLS
+is actually on for both tables.
 
-create index if not exists books_status_idx on books (status);
+Two things in it are worth knowing without opening it:
 
-create table if not exists suggestions (
-  id          text primary key,
-  title       text not null,
-  author      text,
-  note        text,
-  status      text not null default 'unread'
-              check (status in ('unread', 'considering', 'added', 'dismissed')),
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
-);
-```
-
-`published_date` stays `text` because providers return years, year-months and
-full dates interchangeably, and the model already treats it as a string.
-
-`suggestions.updated_at` has no counterpart on the model, which only carries
-`createdAt`. It is database-side bookkeeping; the mapper neither sends nor reads
-it.
-
-## Grants and policies
-
-```sql
-alter table books enable row level security;
-alter table suggestions enable row level security;
-
--- Anonymous starts with nothing. Hand it exactly two capabilities:
--- read the shelf, and post through the slot.
-grant usage on schema public to anonymous;
-grant select on books to anonymous;
-grant insert on suggestions to anonymous;
-
--- The shelf is public.
-create policy books_public_read on books
-  for select to anonymous, authenticated using (true);
-
--- Anyone may post a suggestion, but not pre-triage it.
-create policy suggestions_public_insert on suggestions
-  for insert to anonymous, authenticated with check (status = 'unread');
-```
-
-Then, with your user id from step 5:
-
-```sql
--- Replace OWNER_ID with the value of select auth.user_id().
-create policy books_owner_write on books
-  for all to authenticated
-  using (owner_id = 'OWNER_ID')
-  with check (owner_id = 'OWNER_ID');
-
-create policy suggestions_owner_manage on suggestions
-  for select to authenticated using (auth.user_id() = 'OWNER_ID');
-
-create policy suggestions_owner_update on suggestions
-  for update to authenticated using (auth.user_id() = 'OWNER_ID');
-
-create policy suggestions_owner_delete on suggestions
-  for delete to authenticated using (auth.user_id() = 'OWNER_ID');
-```
-
-Pinning writes to a literal id rather than to "any authenticated user" is what
-keeps the library yours even if sign-up is ever opened by accident.
-
-## Migrating the books already in your browser
-
-They only exist in the browser that added them, so this has to run there, once,
-before anything clears that key. Read `the-stacks:books:v1`, POST each row to
-the Data API as the signed-in owner, then confirm the count before touching
-local state. Worth building as a visible one-time action rather than a silent
-effect on load, so a half-finished migration is obvious.
+- `rating` is `numeric(2, 1)` constrained to half steps, not an integer. The
+  model documents 0.5 to 5.
+- `books.owner_id` gets a default of your literal user id in step 2, so the app
+  never sends it and cannot get it wrong. That is also why the file has two
+  steps: your user id does not exist until you have signed in once.
 
 ## Want-to-read books are public
 
