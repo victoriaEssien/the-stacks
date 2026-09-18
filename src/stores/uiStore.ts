@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 
 /** Which 2D overlay, if any, sits on top of the 3D scene. */
-export type Overlay = 'none' | 'add-book' | 'book-info' | 'suggestions' | 'stats' | 'help';
+export type Overlay =
+  'none' | 'add-book' | 'book-info' | 'suggestions' | 'stats' | 'help' | 'sign-in';
 
 /** `explore` = pointer-locked first person. `list` = accessible 2D browsing. */
 export type ViewMode = 'explore' | 'list';

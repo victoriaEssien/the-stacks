@@ -5,6 +5,7 @@ import {
   Button,
   Fab,
   HelpIcon,
+  KeyIcon,
   MailIcon,
   PlusIcon,
   StarIcon,
@@ -30,6 +31,17 @@ export interface LibraryHudProps {
   hint?: ReactNode;
   /** True on touch, where the HUD becomes an app shell. */
   compact?: boolean;
+  /**
+   * Whether to offer the controls that change the library. False for a visitor
+   * looking at someone else's shelf. RLS is the real guard; this only decides
+   * what is worth showing.
+   */
+  canEdit?: boolean;
+  /** Whether signing in means anything, i.e. the library is backed by Neon. */
+  showSignIn?: boolean;
+  signedIn?: boolean;
+  onOpenSignIn?: () => void;
+  onSignOut?: () => void;
   /** Which tab is lit. Only meaningful when `compact`. */
   activeTab?: HudTab;
   onSelectTab?: (tab: HudTab) => void;
@@ -113,6 +125,11 @@ export const LibraryHud = ({
   notice,
   hint,
   compact = false,
+  canEdit = true,
+  showSignIn = false,
+  signedIn = false,
+  onOpenSignIn,
+  onSignOut,
   activeTab = 'library',
   onSelectTab,
   onAddBook,
@@ -155,6 +172,16 @@ export const LibraryHud = ({
                     />
                   </div>
                 )}
+                {showSignIn && (
+                  <Button
+                    variant="quiet"
+                    aria-label={signedIn ? 'Sign out' : 'Sign in as the owner'}
+                    onClick={signedIn ? onSignOut : onOpenSignIn}
+                    className="rounded-full border border-ink-600/70 bg-ink-800/70 backdrop-blur-sm"
+                  >
+                    <KeyIcon className="h-4.5 w-4.5" />
+                  </Button>
+                )}
                 <Button
                   variant="quiet"
                   aria-label="How this works"
@@ -166,9 +193,11 @@ export const LibraryHud = ({
               </div>
             ) : (
               <nav className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
-                <Button variant="primary" onClick={onAddBook}>
-                  + Add book
-                </Button>
+                {canEdit && (
+                  <Button variant="primary" onClick={onAddBook}>
+                    + Add book
+                  </Button>
+                )}
                 <Button onClick={onOpenSuggestions}>
                   Suggestions{suggestionCount > 0 ? ` · ${suggestionCount}` : ''}
                 </Button>
@@ -176,6 +205,11 @@ export const LibraryHud = ({
                 {canUse3D && (
                   <Button variant="quiet" onClick={onToggleViewMode}>
                     {viewMode === 'explore' ? 'List view' : 'Walk around'}
+                  </Button>
+                )}
+                {showSignIn && (
+                  <Button variant="quiet" onClick={signedIn ? onSignOut : onOpenSignIn}>
+                    {signedIn ? 'Sign out' : 'Sign in'}
                   </Button>
                 )}
                 <Button variant="quiet" aria-label="How this works" onClick={onOpenHelp}>
@@ -200,7 +234,7 @@ export const LibraryHud = ({
             </p>
           )}
 
-          {compact && onLibrary && (
+          {compact && onLibrary && canEdit && (
             <div className="flex w-full justify-end pb-1 pr-1">
               <Fab label="Add a book" onClick={onAddBook}>
                 <PlusIcon className="h-6 w-6" />

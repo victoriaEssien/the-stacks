@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Book, ReadingRecord } from '@/models';
 import { authorLine, publishedYear } from '@/models';
+import { selectCanEdit, useAuthStore } from '@/stores/authStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { Button, Panel, StarRating } from '@/components/ui';
 import { BookCover } from './BookCover';
@@ -22,6 +23,7 @@ const Detail = ({ label, value }: { label: string; value?: string }) =>
 /** Reads first, edits on demand - the panel floats over the library. */
 export const BookInfoPanel = ({ book, onClose }: BookInfoPanelProps) => {
   const [editing, setEditing] = useState(false);
+  const canEdit = useAuthStore(selectCanEdit);
   const updateBook = useLibraryStore((state) => state.updateBook);
   const removeBook = useLibraryStore((state) => state.removeBook);
 
@@ -51,20 +53,22 @@ export const BookInfoPanel = ({ book, onClose }: BookInfoPanelProps) => {
       onClose={onClose}
       placement="side"
       footer={
-        <div className="flex items-center justify-between">
-          <Button
-            variant="danger"
-            onClick={() => {
-              void removeBook(book.id);
-              onClose();
-            }}
-          >
-            Remove
-          </Button>
-          <Button variant="primary" onClick={() => setEditing(true)}>
-            Edit
-          </Button>
-        </div>
+        canEdit ? (
+          <div className="flex items-center justify-between">
+            <Button
+              variant="danger"
+              onClick={() => {
+                void removeBook(book.id);
+                onClose();
+              }}
+            >
+              Remove
+            </Button>
+            <Button variant="primary" onClick={() => setEditing(true)}>
+              Edit
+            </Button>
+          </div>
+        ) : undefined
       }
     >
       <div className="space-y-5">

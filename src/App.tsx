@@ -6,12 +6,15 @@ import {
   HelpPanel,
   LibraryHud,
   ListModeLibrary,
+  OwnerSignIn,
   ReadingStats,
   type HudTab,
 } from '@/components/library';
 import { SuggestionsPanel } from '@/components/suggestions';
 import { ErrorNote, LoadingVeil } from '@/components/ui';
 import { useIsCoarsePointer, useLibraryBootstrap, useReducedMotion } from '@/hooks';
+import { authAvailable } from '@/services/neon';
+import { selectCanEdit, useAuthStore } from '@/stores/authStore';
 import { LibraryCanvas, LibraryScene } from '@/three';
 import { selectCurrentlyReading, selectShelvedBooks, useLibraryStore } from '@/stores/libraryStore';
 import { useSuggestionStore } from '@/stores/suggestionStore';
@@ -47,6 +50,14 @@ export const App = () => {
   const [canvasFailed, setCanvasFailed] = useState(false);
   const [lockRefused, setLockRefused] = useState(false);
   const [touchHintVisible, setTouchHintVisible] = useState(true);
+
+  const canEdit = useAuthStore(selectCanEdit);
+  const signedIn = useAuthStore((state) => state.session !== undefined);
+  const restoreSession = useAuthStore((state) => state.restore);
+  const endSession = useAuthStore((state) => state.signOut);
+  // Probed once, like WebGL: whether the library is backed by a database at all
+  // cannot change for the life of the document.
+  const [canSignIn] = useState(authAvailable);
 
   const books = useLibraryStore((state) => state.books);
   const libraryError = useLibraryStore((state) => state.error);
@@ -119,6 +130,12 @@ export const App = () => {
     return () => clearTimeout(timer);
   }, [navigation, effectiveMode, touchHintVisible]);
 
+  // A stored session survives a reload, so look for one before deciding
+  // whether to offer the controls that change the library.
+  useEffect(() => {
+    void restoreSession();
+  }, [restoreSession]);
+
   useEffect(() => {
     if (!lockRefused) return;
     const timer = setTimeout(() => setLockRefused(false), TOAST_MS);
@@ -170,6 +187,11 @@ export const App = () => {
         pointerLocked={pointerLocked}
         canUse3D={canUse3D}
         compact={coarsePointer}
+        canEdit={canEdit}
+        showSignIn={canSignIn}
+        signedIn={signedIn}
+        onOpenSignIn={() => openOverlay('sign-in')}
+        onSignOut={() => void endSession()}
         activeTab={activeTab}
         onSelectTab={selectTab}
         hint={
@@ -211,6 +233,7 @@ export const App = () => {
         <ReadingStats books={books} placement="screen" onClose={closeOverlay} />
       )}
       {overlay === 'help' && <HelpPanel navigation={navigation} onClose={closeOverlay} />}
+      {overlay === 'sign-in' && <OwnerSignIn onClose={closeOverlay} />}
       {overlay === 'book-info' && selectedBook && (
         <BookInfoPanel book={selectedBook} onClose={closeOverlay} />
       )}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { SuggestionStatus } from '@/models';
+import { selectCanEdit, useAuthStore } from '@/stores/authStore';
 import { useSuggestionStore } from '@/stores/suggestionStore';
 import {
   Button,
@@ -40,6 +41,7 @@ export const SuggestionsPanel = ({ placement, onClose }: SuggestionsPanelProps) 
   const removeSuggestion = useSuggestionStore((state) => state.removeSuggestion);
   const error = useSuggestionStore((state) => state.error);
   const readOnlyBox = useSuggestionStore((state) => state.readOnlyBox);
+  const canEdit = useAuthStore(selectCanEdit);
 
   const [form, setForm] = useState({ title: '', author: '', note: '' });
   const [justAdded, setJustAdded] = useState(false);
@@ -113,7 +115,7 @@ export const SuggestionsPanel = ({ placement, onClose }: SuggestionsPanelProps) 
 
       {/* A visitor may post through the slot but not read the pile. That is the
           box working as intended, so it says so rather than showing an error. */}
-      {readOnlyBox ? (
+      {readOnlyBox || !canEdit ? (
         <EmptyState
           title="Posted and out of sight"
           body="Only the owner of this library reads the box. Thank you for the recommendation."

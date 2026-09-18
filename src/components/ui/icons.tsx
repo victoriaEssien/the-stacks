@@ -77,3 +77,11 @@ export const CloseIcon = (props: IconProps) => (
     <path d="M6.4 6.4l11.2 11.2M17.6 6.4L6.4 17.6" />
   </Icon>
 );
+
+/** Owner sign-in. A key, because this is about who holds the library. */
+export const KeyIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="8.4" cy="15.6" r="4.1" />
+    <path d="M11.3 12.7l7.3-7.3M16.4 7.6l2.2 2.2M18.9 5.1l2.1 2.1" />
+  </Icon>
+);
