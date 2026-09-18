@@ -3,6 +3,10 @@
 -- Run in the Neon SQL editor AFTER enabling the Data API on the branch, which
 -- is what creates the `anonymous` and `authenticated` roles.
 --
+-- Do NOT paste the whole file at once. Step 1 is safe to run immediately; step 2
+-- needs your user id, which does not exist until you have signed in once, and it
+-- now refuses to run until the placeholder is replaced.
+--
 -- Safe to re-run: every statement is idempotent, so if something goes wrong you
 -- can fix it and paste the whole thing again.
 --
@@ -92,6 +96,20 @@ create policy suggestions_public_insert on suggestions
 -- and replace BOTH occurrences of OWNER_ID below with the value it returns
 -- (keep the single quotes). Nothing above this line needs changing.
 -- ===========================================================================
+
+-- Refuses to run until the placeholder is replaced. Pasting the whole file in
+-- one go would otherwise leave the literal text 'OWNER_ID' as both the default
+-- and the policy comparison, which quietly matches and hands write access to
+-- ANY authenticated user. The concatenation below survives a find-and-replace
+-- of the placeholder, so the guard cannot be substituted away by accident.
+do $$
+declare owner_id_value text := 'OWNER_ID';
+begin
+  if owner_id_value = 'OWNER' || '_ID' then
+    raise exception
+      'Step 2 not ready: replace the placeholder with the value of select auth.user_id() first';
+  end if;
+end $$;
 
 -- So the app never sends owner_id, and cannot get it wrong.
 alter table books alter column owner_id set default 'OWNER_ID';
