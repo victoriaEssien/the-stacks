@@ -21,7 +21,8 @@ const load = (url: string): Promise<THREE.Texture> =>
     }
     // WebGL will only sample a CORS-clean image. Anything served without
     // `Access-Control-Allow-Origin` fails here rather than merely losing its
-    // sampled spine colour - see `isTextureSafeCover` in the books service.
+    // sampled spine colour, which is why every candidate is routed through our
+    // own `/api/cover` - see `proxiedCoverUrl` in the books service.
     loader.setCrossOrigin('anonymous');
     loader.load(
       url,

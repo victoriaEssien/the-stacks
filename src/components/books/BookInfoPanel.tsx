@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Book, ReadingRecord } from '@/models';
+import type { Book, BookDetails } from '@/models';
 import { authorLine, publishedYear } from '@/models';
 import { selectCanEdit, useAuthStore } from '@/stores/authStore';
 import { useLibraryStore } from '@/stores/libraryStore';
@@ -27,8 +27,8 @@ export const BookInfoPanel = ({ book, onClose }: BookInfoPanelProps) => {
   const updateBook = useLibraryStore((state) => state.updateBook);
   const removeBook = useLibraryStore((state) => state.removeBook);
 
-  const handleSubmit = async (record: ReadingRecord) => {
-    await updateBook(book.id, record);
+  const handleSubmit = async (details: BookDetails) => {
+    await updateBook(book.id, details);
     setEditing(false);
   };
 

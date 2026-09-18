@@ -44,8 +44,8 @@ These come from the spec's agent instructions. Do not quietly break them.
    Providers normalise into `ExternalBook`; the app stores `Book`. Adding a
    provider = one new class implementing `BookProvider`, registered in
    `BookService`. No other file changes. `covers.ts` extends this to their
-   CDNs — which host serves what, and which sends CORS headers — because that
-   is provider knowledge too, and the 3D layer needs the answer.
+   CDNs — which host serves what, and which of it is safe to fetch — because
+   that is provider knowledge too, and the 3D layer needs the answer.
 3. **Persistence is behind `Repository<T>`.** `LocalStorageRepository` is the
    current implementation. Moving to Supabase/Postgres/an API means writing a
    new class and swapping two lines in `services/persistence/repositories.ts`.
@@ -78,6 +78,45 @@ These come from the spec's agent instructions. Do not quietly break them.
     knows about the other. Everything they share - collision, the room plan, the
     shelf layout - is pure and does not care what is driving the camera, so a
     third scheme (a gamepad, say) is one more sibling and no edits elsewhere.
+
+11. **`api/` is ours, and it is the only server there is.** One Vercel
+    function so far, `api/cover.ts`. Two rules make it maintainable: TypeScript
+    path aliases do NOT work inside `api/` (Vercel's own docs say so), so
+    imports there are relative and carry a `.ts` extension; and the behaviour
+    lives in `src/services/` so that `tooling/coverProxyPlugin.ts` can mount the
+    SAME handler on the dev server. A second implementation for `pnpm dev` would
+    be the one that is never tested and never right.
+
+## The cover proxy
+
+`/api/cover?src=<url>` re-serves someone else's cover art from our origin.
+
+- **Why it exists:** a WebGL texture must come from a CORS-clean image, and
+  Google serves the best jackets with no `Access-Control-Allow-Origin` at all.
+  The room used to answer that by fetching the same ISBN from Open Library
+  instead, so one book wore publisher art in the panel and an archive.org scan
+  in the room, and wore nothing at all when Open Library had no scan behind that
+  ISBN. Routing textures through our own origin removes the fork: `<img>` and
+  texture now load the same bytes.
+- **`proxyableCoverUrl` decides what may be fetched, and it is not a list of
+  known CDNs** — it cannot be, because the reader can paste a cover URL from
+  anywhere. It is a guard instead: HTTPS only (`http:` is upgraded, not
+  refused), no embedded credentials, no odd port, and nothing addressed by IP or
+  by a name with no public DNS behind it, so the endpoint is not a way to reach
+  things that are not on the internet. The response side adds the rest: image
+  content types only, a 5 MB cap and an 8 second timeout.
+- Redirects are followed, because Open Library answers through two hops to
+  archive.org. The hop targets are chosen by the upstream host and not by the
+  caller, so this does not widen what the guard just decided.
+- **The edit form's "Cover image URL" field is the escape hatch**, for a book
+  no provider has art for and for a jacket from the wrong edition. It starts
+  from the cover the book already has, so the art can be seen and corrected in
+  one place, and an EMPTY box is a real choice: it means the drawn cover, not
+  "keep whatever the provider guessed".
+- Every refusal is a bare status: 400 for a `src` we will not fetch, 404 for a
+  book nobody has scanned, 502 for anything else. The app treats all three the
+  same — try the next candidate, then draw a cover — so the codes are for
+  whoever is reading the network tab.
 
 ## Touch
 
@@ -188,9 +227,12 @@ real Chrome, and they are the reason the loading states are where they are.
   where the skeletons are: `BookCover` sizes a placeholder to the exact box the
   image will fill, and `BookSearchResults` shows result-shaped rows rather than
   a spinner. Nothing reflows when the image lands.
-- Cover images are cached by the BROWSER, not by us: Open Library sends
-  `max-age=10800`, Google `private, max-age=86400`. An app-level cache would buy
-  offline covers and nothing else — worth it only alongside a service worker.
+- Cover images are cached by the browser and, for textures, by our own CDN:
+  `/api/cover` sends `max-age=86400, s-maxage=31536000`, so the second visitor's
+  texture costs no upstream request at all. Upstream is stingier by comparison
+  (Open Library `max-age=10800`, Google `private, max-age=86400`), which is a
+  second reason the proxy earns its keep. Storing the bytes ourselves would buy
+  covers that cannot rot — worth doing, and not done yet.
 - **A cover URL is never stored unverified.** Open Library will mint one for any
   ISBN and `default=false` then 404s when there is no scan behind it, so
   `OpenLibraryProvider` HEADs the URL before claiming it and `normalise` takes a
@@ -224,9 +266,6 @@ real Chrome, and they are the reason the loading states are where they are.
 - Cover textures are cached by URL and never evicted, and so are the spine
   colours sampled from them (`three/materials/useCoverColor.ts`). Fine for a
   personal library; a shared one would want an LRU.
-- A book with a Google-only cover and NO ISBN still wears a generated cover in
-  the room — there is nowhere CORS-clean to fetch its jacket from. It shows the
-  real one in Shelf view, where a plain `<img>` has no such restriction.
 - Google Books rate-limits unkeyed clients by IP, so searches quietly fall back
   to Open Library, whose metadata and cover coverage are patchier. Set
   `VITE_GOOGLE_BOOKS_API_KEY` to stay on Google.

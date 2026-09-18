@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ExternalBook, ReadingRecord } from '@/models';
+import type { BookDetails, ExternalBook } from '@/models';
 import { useBookSearch } from '@/hooks/useBookSearch';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { ErrorNote, Panel, TextInput } from '@/components/ui';
@@ -20,10 +20,12 @@ export const AddBookDialog = ({ onClose }: AddBookDialogProps) => {
   const storeError = useLibraryStore((state) => state.error);
   const clearError = useLibraryStore((state) => state.clearError);
 
-  const handleSubmit = async (record: ReadingRecord) => {
+  const handleSubmit = async (details: BookDetails) => {
     if (!chosen) return;
     setBusy(true);
-    const created = await addBook({ ...chosen, ...record });
+    // `details` wins on cover: the form starts from the provider's URL, so a
+    // changed or emptied box is a deliberate choice about this book's art.
+    const created = await addBook({ ...chosen, ...details });
     setBusy(false);
     if (created) onClose();
   };

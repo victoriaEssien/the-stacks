@@ -53,8 +53,18 @@ export interface Book extends ExternalBook, ReadingRecord {
 /** Everything needed to create a Book, minus the fields the store owns. */
 export type NewBook = ExternalBook & Partial<ReadingRecord>;
 
+/**
+ * What the details form hands back: the reading record, plus an override for
+ * the cover art.
+ *
+ * The art is metadata rather than part of the reading record, but it is the one
+ * piece of metadata the providers get wrong often enough to be worth typing by
+ * hand - a book with no scan anywhere, or a jacket from the wrong edition.
+ */
+export type BookDetails = ReadingRecord & Pick<ExternalBook, 'coverImage'>;
+
 /** The subset a user may edit from the info panel. */
-export type BookEdits = Partial<ReadingRecord> & Partial<Pick<Book, 'coverImage'>>;
+export type BookEdits = Partial<BookDetails>;
 
 /**
  * How each status reads to someone else looking at the shelf.
