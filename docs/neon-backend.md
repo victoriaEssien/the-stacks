@@ -88,7 +88,12 @@ flag a table that does not.
 
 ## Setup, in order
 
-1. Create a Neon project. Free plan.
+1. Create a Neon project on the Free plan, region **Europe (London)**. The
+   region is permanent: "You cannot change the region for an existing project."
+   London is roughly 90 to 110ms from Lagos against 170 to 200ms to Ohio, and
+   because the browser calls the Data API directly there is no server hop to
+   hide that latency behind. Enable the Postgres database and Neon Auth only;
+   Object storage, Functions and the AI gateway are not needed.
 2. Enable the **Data API** on the primary branch. This creates the `anonymous`
    and `authenticated` roles and applies the default grants.
 3. Enable **Neon Auth**, and disable open sign-up so only your account exists.
@@ -198,13 +203,28 @@ the Data API as the signed-in owner, then confirm the count before touching
 local state. Worth building as a visible one-time action rather than a silent
 effect on load, so a half-finished migration is obvious.
 
+## Want-to-read books are public
+
+Decided: yes. That means `books_public_read` stays `using (true)` and no policy
+work is needed, which is the simpler outcome.
+
+It does leave a presentation bug that only matters once strangers can see the
+shelf. Right now:
+
+- the HUD header counts `read` books only (`selectShelvedBooks`)
+- Shelf view is handed every book, `want_to_read` and `reading` included
+- `ListModeLibrary` renders no status
+
+So the header claims "12 books read" above a grid of more than 12 covers, and a
+book you have not started looks exactly like one you finished apart from a
+missing star rating. A visitor will read every cover on that grid as a book you
+have read. **Fix this before the library goes public**, either with a status
+chip on the card or by grouping the grid into read, reading and want-to-read.
+The room is unaffected; it shelves `read` only.
+
 ## Still to decide
 
 - **Hosting.** Nothing is deployed yet, so "people coming in" cannot happen
   regardless of storage. Vercel is the least work for a Vite SPA.
-- **Whether want-to-read books are public.** The room only shelves `read`, and
-  Shelf view currently lists everything including `want_to_read`. A public
-  visitor seeing your to-read pile may or may not be wanted, and it is a policy
-  change either way.
 - Rate limiting on the suggestion slot. There is none, and the open internet
   will find it eventually.
