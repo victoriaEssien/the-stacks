@@ -161,10 +161,9 @@ held server side.
   those through would make it a general purpose Google Books proxy carrying our
   key.
 - **Upstream status codes are passed through, bodies are not.** `fetchJson`
-  turns 429 into a rate limit and 403 into a refused key, and `BookService`
-  falls through to Open Library on either, so flattening everything into a 502
-  would lose working behaviour. The body is dropped because Google's error JSON
-  quotes the key back at you.
+  turns 429 into a rate limit and 403 into a refused key, and the reader is
+  shown that rather than an unexplained empty result. The body is dropped
+  because Google's error JSON quotes the key back at you.
 - **`callerOrigin` is a deterrent, not a security boundary.** It checks
   `Sec-Fetch-Site` and `Referer`, both of which come from the caller. It is
   there because this endpoint spends our Google quota, and without it the
@@ -174,6 +173,44 @@ held server side.
   headers are consulted because neither is universal, and the origin it returns
   is forwarded to Google as the `Referer` so a referrer-restricted key keeps
   working from a server.
+
+## Searching
+
+**Google Books is the only search provider, and its own relevance is not good
+enough to use directly.** Measured against the live API while looking for
+"Keep It in the Family" by John Marrs, and for Pretty Girls by its ISBN:
+
+| query                             | result                                                    |
+| --------------------------------- | --------------------------------------------------------- |
+| `keep it in the family`           | not in the first 40 results                               |
+| `intitle:"keep it in the family"` | third                                                     |
+| `john marrs`                      | no book by him at all: a study guide, then county records |
+| `inauthor:"john marrs"`           | first                                                     |
+| `9780062429063`                   | **zero results**                                          |
+| `isbn:9780062429063`              | exactly the right book                                    |
+
+- So `searchQueries` in `services/books/searchRanking.ts` builds SEVERAL
+  queries and `GoogleBooksProvider` runs them in parallel, merging the results.
+  No single form can replace the plain query, because the author-plus-title
+  phrasing a reader falls back to (`john marrs keep it in`) matches no single
+  field. `q OR intitle:"q"` was measured too and finds neither.
+- **An ISBN replaces the plain query rather than joining it**, since the plain
+  form returns nothing for one and an ISBN identifies exactly one book.
+- The author query is only added for a query of three words or fewer. A longer
+  phrase is nobody's name, and each query costs a request against a daily quota.
+- **`rankByRelevance` scores authors as highly as titles, and it has to.** For
+  an author search the right books come from the `inauthor:` query and their
+  titles have nothing to do with what was typed, so scoring titles alone would
+  leave Google's plain-query noise sitting on top of them. Within a score band
+  the order Google gave is preserved, because when nothing matches by name its
+  relevance is the only signal there is.
+- **Open Library is no longer a search fallback.** It used to sit behind Google
+  so a failed search still returned something, and that was the wrong trade:
+  its records are thin (often no page count, no description, a different
+  edition's cover) and a book added from one is a worse record forever. A
+  search that fails and says so beats a bad result that does not. It stays on
+  as `BookService`'s `coverFallback`, which is a different job: finding a jacket
+  for a book Google has no image for, verified with a HEAD before it is claimed.
 
 ## Touch
 
@@ -336,14 +373,22 @@ real Chrome, and they are the reason the loading states are where they are.
   colours sampled from them (`three/materials/useCoverColor.ts`). Fine for a
   personal library; a shared one would want an LRU.
 - Google Books rate-limits unkeyed callers by IP, so with no
-  `GOOGLE_BOOKS_API_KEY` set, searches quietly fall back to Open Library and its
-  patchier metadata. A refused key is not fatal for the same reason, so it is
-  easy not to notice — `GoogleBooksProvider` warns once in dev on a 403.
+  `GOOGLE_BOOKS_API_KEY` set, searches will eventually start failing rather
+  than degrading: there is no second search provider behind it any more.
+  `GoogleBooksProvider` warns once in dev on a 403, because a refused key is
+  otherwise easy not to notice.
 - `/api/search` has no rate limit of its own. The same-origin check turns away
   casual use and the CDN serves a repeated query for free, but someone
-  determined can still spend the day's Google quota, after which searches fall
-  back to Open Library until it resets. That costs nothing but patchier results,
-  and only the owner can search at all, so it is not worth a token check yet.
+  determined can spend the day's Google quota, after which search stops working
+  until it resets. Only the owner can search at all, so it is not worth a token
+  check yet.
+- A search spends up to three Google requests, one per query form. Fine against
+  a 1,000/day quota with one reader, and `BookService.searchCache` means typing
+  back and forth costs nothing, but it is the number to look at first if the
+  quota ever becomes a problem.
+- Three books can share a title, and when they do the order among them is
+  Google's. Searching "keep it in the family" puts David F. Hockley's above John
+  Marrs's; both are on screen, which is the part that was broken.
 - `Panel` has no focus trap. Escape closes and focus is visible, but Tab can
   still walk behind an open dialog.
 - The touch shell has no history integration: Android's back gesture leaves the

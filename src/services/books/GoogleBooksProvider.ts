@@ -3,6 +3,7 @@ import { env } from '@/config/env';
 import { appError, err, ok, type AppError, type Result } from '@/utils/result';
 import { fetchJson, toHttps } from './http';
 import { SEARCH_PROXY_PATH } from './endpoints';
+import { mergeSearchResults, searchQueries } from './searchRanking';
 import type { BookProvider, SearchOptions } from './types';
 
 interface GoogleVolume {
@@ -97,24 +98,51 @@ export class GoogleBooksProvider implements BookProvider {
     );
   }
 
-  async search(query: string, options: SearchOptions = {}): Promise<Result<ExternalBook[]>> {
-    const trimmed = query.trim();
-    if (!trimmed) return ok([]);
-
-    const params = new URLSearchParams({
-      q: trimmed,
-      maxResults: String(Math.min(options.limit ?? 12, 40)),
-    });
+  /** One request to Google, already normalised. */
+  private async volumes(
+    query: string,
+    limit: number,
+    options: SearchOptions,
+  ): Promise<Result<ExternalBook[]>> {
+    const params = new URLSearchParams({ q: query, maxResults: String(limit) });
 
     const result = await fetchJson<GoogleVolumesResponse>(`${this.endpoint}?${params.toString()}`, {
       signal: options.signal,
     });
-    if (!result.ok) {
-      this.noteRefusal(result.error);
-      return result;
-    }
+    if (!result.ok) return result;
 
     return ok((result.value.items ?? []).map(normalise).filter((b): b is ExternalBook => !!b));
+  }
+
+  /**
+   * Several searches in parallel, merged and re-ranked.
+   *
+   * See `searchRanking.ts` for the measurements behind this. In short, Google's
+   * own relevance finds a book neither by its title alone nor by its author
+   * alone, and returns nothing whatsoever for an ISBN, so the field-qualified
+   * forms do the real work - but none of them can replace the plain query,
+   * because the author-plus-title phrasing a reader falls back to matches no
+   * single field.
+   */
+  async search(query: string, options: SearchOptions = {}): Promise<Result<ExternalBook[]>> {
+    const trimmed = query.trim();
+    if (!trimmed) return ok([]);
+
+    const limit = Math.min(options.limit ?? 12, 40);
+    const queries = searchQueries(trimmed);
+
+    const results = await Promise.all(queries.map((q) => this.volumes(q, limit, options)));
+
+    // Only the FIRST query is allowed to fail the search. The rest improve the
+    // answer; they are not the answer.
+    const [primary] = results;
+    if (primary && !primary.ok) {
+      this.noteRefusal(primary.error);
+      return primary;
+    }
+
+    const sets = results.map((result) => (result.ok ? result.value : []));
+    return ok(mergeSearchResults(sets, trimmed, limit));
   }
 
   async getById(sourceId: string, options: SearchOptions = {}): Promise<Result<ExternalBook>> {

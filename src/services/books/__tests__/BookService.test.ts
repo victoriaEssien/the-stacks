@@ -38,8 +38,9 @@ describe('BookService', () => {
   });
 
   it('keeps the reader searching when the primary key is refused', async () => {
-    // A 403 must not become a dead search box: Open Library answers instead,
-    // and the shout about the broken key is a dev-console concern.
+    // The chain itself is still worth having even though the app now registers
+    // only one search provider: a 403 from the primary must reach whatever is
+    // behind it rather than becoming a dead search box.
     const primary = vi.fn(async () => err(appError('forbidden', 'refused')));
     const service = new BookService([
       provider('google', primary),

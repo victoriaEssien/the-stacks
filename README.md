@@ -64,7 +64,6 @@ Copy `.env.example` to `.env`. Everything in it is optional:
 | Variable                 | Purpose                                                                          |
 | ------------------------ | -------------------------------------------------------------------------------- |
 | `GOOGLE_BOOKS_API_KEY`   | Raises the rate limit. **Server only** — read by `api/search.ts`, never bundled. |
-| `VITE_BOOK_PROVIDER`     | `google` (default) or `openlibrary` — which provider is tried first.             |
 | `VITE_STORAGE_NAMESPACE` | Prefix for localStorage keys.                                                    |
 
 ## Stack

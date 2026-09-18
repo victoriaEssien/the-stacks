@@ -2,8 +2,6 @@
  * Single place where `import.meta.env` is read. Everything else imports `env`
  * so that swapping in a server-side config later touches exactly one file.
  */
-export type ProviderId = 'google' | 'openlibrary';
-
 export const env = {
   /*
    * There is deliberately no Google Books key here. It lives in
@@ -31,7 +29,6 @@ export const env = {
    * disappear rather than appearing for a stranger.
    */
   libraryOwnerId: import.meta.env.VITE_LIBRARY_OWNER_ID?.trim() || undefined,
-  preferredProvider: (import.meta.env.VITE_BOOK_PROVIDER ?? 'google') as ProviderId,
   storageNamespace: import.meta.env.VITE_STORAGE_NAMESPACE ?? 'the-stacks',
   isDev: import.meta.env.DEV,
 } as const;

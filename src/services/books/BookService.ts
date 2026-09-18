@@ -1,5 +1,4 @@
 import type { ExternalBook } from '@/models';
-import { env, type ProviderId } from '@/config/env';
 import { appError, err, ok, type Result } from '@/utils/result';
 import { GoogleBooksProvider } from './GoogleBooksProvider';
 import { OpenLibraryProvider } from './OpenLibraryProvider';
@@ -11,13 +10,18 @@ import type { BookProvider, SearchOptions } from './types';
  * The rest of the app depends on THIS, never on a concrete provider - so a
  * provider can be swapped, reordered or added without touching UI code.
  */
+/** A provider consulted only for artwork, never for search results. */
+export type CoverFallback = Required<Pick<BookProvider, 'findCover'>>;
+
 export class BookService {
   private readonly providers: BookProvider[];
+  private readonly coverFallback?: CoverFallback;
   private readonly searchCache = new Map<string, ExternalBook[]>();
 
-  constructor(providers: BookProvider[]) {
+  constructor(providers: BookProvider[], coverFallback?: CoverFallback) {
     if (providers.length === 0) throw new Error('BookService needs at least one provider.');
     this.providers = providers;
+    this.coverFallback = coverFallback;
   }
 
   get primary(): BookProvider {
@@ -56,15 +60,23 @@ export class BookService {
     return lastError.kind === 'unknown' ? ok([]) : err(lastError);
   }
 
-  /** Ask a secondary provider for artwork when the primary had none. */
+  /**
+   * Ask the cover fallback for artwork when the search provider had none.
+   *
+   * Separate from the search chain on purpose. Open Library is no longer wanted
+   * in search results - its metadata is thin enough that adding a book from one
+   * makes a worse record - but it is still the only place to find a jacket for
+   * a book Google has no image for, and that lookup is invisible and verified
+   * (`findCover` HEADs the URL before claiming it).
+   */
   private async backfillCovers(books: ExternalBook[]): Promise<ExternalBook[]> {
-    const coverProvider = this.providers.find((p) => typeof p.findCover === 'function');
-    if (!coverProvider?.findCover) return books;
+    const fallback = this.coverFallback;
+    if (!fallback) return books;
 
     return Promise.all(
       books.map(async (book) => {
         if (book.coverImage) return book;
-        const cover = await coverProvider.findCover!(book);
+        const cover = await fallback.findCover(book);
         return cover.ok && cover.value ? { ...book, coverImage: cover.value } : book;
       }),
     );
@@ -75,14 +87,14 @@ export class BookService {
   }
 }
 
-const buildProviders = (preferred: ProviderId): BookProvider[] => {
-  // No key passed: `GoogleBooksProvider` talks to our own `/api/search`, which
-  // holds it. Open Library needs none and is called from the browser directly,
-  // so it stays the fallback even when our endpoint is down.
-  const google = new GoogleBooksProvider();
-  const openLibrary = new OpenLibraryProvider();
-  return preferred === 'openlibrary' ? [openLibrary, google] : [google, openLibrary];
-};
-
-/** App-wide instance. Tests should construct their own with fake providers. */
-export const bookService = new BookService(buildProviders(env.preferredProvider));
+/**
+ * App-wide instance. Tests should construct their own with fake providers.
+ *
+ * ONE search provider. Google talks to our own `/api/search`, which holds the
+ * key. Open Library used to sit behind it as a search fallback and has been
+ * taken out: when it answered, the results were thin (often no page count, no
+ * description, a different edition's cover) and a book added from one is a
+ * worse record forever. A failed search that says so is better than a bad
+ * result that does not. It stays on as the cover fallback only.
+ */
+export const bookService = new BookService([new GoogleBooksProvider()], new OpenLibraryProvider());
