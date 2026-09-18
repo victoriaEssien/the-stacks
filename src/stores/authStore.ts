@@ -7,6 +7,7 @@ import {
   signOut,
   type OwnerSession,
 } from '@/services/neon';
+import { env } from '@/config/env';
 import type { AppError } from '@/utils/result';
 
 interface AuthState {
@@ -36,6 +37,23 @@ interface AuthState {
  * Row-Level Security, which refuses a write from anyone but the owner however
  * the interface is persuaded to offer it.
  */
+/** Reported once: it is a configuration problem, not a per-render one. */
+let warnedAboutOwner = false;
+
+const warnIfNotOwner = (userId: string) => {
+  if (warnedAboutOwner || !authAvailable() || !env.isDev) return;
+  if (env.libraryOwnerId === userId) return;
+  warnedAboutOwner = true;
+  console.warn(
+    '[the-stacks] Signed in as ' +
+      userId +
+      ', which is not VITE_LIBRARY_OWNER_ID (' +
+      (env.libraryOwnerId ?? 'unset') +
+      '), so the controls that change the library stay hidden. Set that variable ' +
+      'to the id the RLS policy pins writes to.',
+  );
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
   loadState: 'idle',
   busy: false,
@@ -44,6 +62,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   restore: async () => {
     set({ loadState: 'loading' });
     const result = await currentSession();
+    if (result.ok && result.value) warnIfNotOwner(result.value.userId);
     set({
       session: result.ok ? result.value : undefined,
       loadState: 'ready',
@@ -72,6 +91,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       return false;
     }
     set({ session: result.value, busy: false, loadState: 'ready', codeSent: false });
+    warnIfNotOwner(result.value.userId);
     return true;
   },
 
@@ -86,6 +106,32 @@ export const useAuthStore = create<AuthState>((set) => ({
   clearError: () => set({ error: undefined }),
 }));
 
+/**
+ * Whether the interface should offer the controls that change the library.
+ *
+ * Pure, and separated from the store so the awkward cases are testable.
+ *
+ * "Signed in" is NOT the same as "the owner", and conflating them was a real
+ * flaw: with sign-up open on the auth project, a stranger could create an
+ * account, see Add book, Edit and Remove, and have every one of them refused by
+ * RLS. Nothing leaked, but the library looked broken to them.
+ *
+ * `remote: false` means the library lives in this browser, where there is no
+ * owner to be - the reader is looking at their own localStorage.
+ */
+export const canEditLibrary = (options: {
+  remote: boolean;
+  ownerId?: string;
+  sessionUserId?: string;
+}): boolean => {
+  if (!options.remote) return true;
+  return options.ownerId !== undefined && options.sessionUserId === options.ownerId;
+};
+
 /** True when the interface should offer the controls that change the library. */
 export const selectCanEdit = (state: AuthState): boolean =>
-  !authAvailable() || state.session !== undefined;
+  canEditLibrary({
+    remote: authAvailable(),
+    ownerId: env.libraryOwnerId,
+    sessionUserId: state.session?.userId,
+  });

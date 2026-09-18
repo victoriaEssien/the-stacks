@@ -142,6 +142,23 @@ password and Row-Level Security are what protect the library. The fragment is
 stripped from the URL once acted on, so a reload or a shared link does not keep
 reopening the form.
 
+### Signed in is not the same as being the owner
+
+`canEditLibrary` compares the session's user id to `VITE_LIBRARY_OWNER_ID`, not
+merely "is there a session". Conflating the two was a real flaw: with sign-up
+open on the auth project, a stranger could create an account and then see Add
+book, Edit and Remove, with every one refused by RLS. Nothing leaked, but the
+library looked broken to them.
+
+It **fails closed**. An unset or mismatched owner id hides the editing controls
+rather than showing them, so forgetting the variable in an environment costs a
+confusing few minutes, not a permissive UI. `GoogleBooksProvider` is not the
+only thing that shouts in dev: the auth store warns once, naming the variable,
+when a session arrives that is not the owner's.
+
+The id is not a secret. It is already the literal inside the RLS policy, and it
+only decides what gets drawn.
+
 Once signed in, a `Sign out` control appears. That one is safe to show, because
 only the owner ever sees it. There is deliberately no sign-up form: the single
 account is created in the Neon console, because an account anyone can create

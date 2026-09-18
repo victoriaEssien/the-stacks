@@ -17,6 +17,15 @@ export const env = {
    * means the library stays in localStorage.
    */
   neonUrl: import.meta.env.VITE_NEON_URL?.trim() || undefined,
+  /**
+   * The owner's auth user id, i.e. what `auth.user_id()` returns for them.
+   *
+   * Not a secret. It is already the literal inside the RLS policy, and all it
+   * does here is decide which controls are worth drawing. Unset means nobody is
+   * treated as the owner, which is the safe direction to fail: the buttons
+   * disappear rather than appearing for a stranger.
+   */
+  libraryOwnerId: import.meta.env.VITE_LIBRARY_OWNER_ID?.trim() || undefined,
   preferredProvider: (import.meta.env.VITE_BOOK_PROVIDER ?? 'google') as ProviderId,
   storageNamespace: import.meta.env.VITE_STORAGE_NAMESPACE ?? 'the-stacks',
   isDev: import.meta.env.DEV,
