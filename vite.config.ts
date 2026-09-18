@@ -3,10 +3,10 @@ import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { coverProxyDev } from './tooling/coverProxyPlugin.ts';
+import { apiDevPlugin } from './tooling/apiDevPlugin.ts';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), coverProxyDev()],
+  plugins: [react(), tailwindcss(), apiDevPlugin()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -43,7 +43,6 @@ export default defineConfig({
       // seeds localStorage - quietly tests nothing. Unit tests talk to no
       // network; the Neon path is covered by injecting a fake client.
       VITE_NEON_URL: '',
-      VITE_GOOGLE_BOOKS_API_KEY: '',
     },
   },
 });

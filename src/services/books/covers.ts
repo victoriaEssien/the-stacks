@@ -15,6 +15,8 @@
  * source of art per book, and the CORS question stops arising.
  */
 
+import { COVER_PROXY_PATH } from './endpoints.ts';
+
 export const OPEN_LIBRARY_COVERS = 'https://covers.openlibrary.org/b';
 
 /**
@@ -28,9 +30,6 @@ export const coverUrlFromId = (coverId: number, size: 'S' | 'M' | 'L'): string =
 
 export const coverUrlFromIsbn = (isbn: string, size: 'S' | 'M' | 'L'): string =>
   `${OPEN_LIBRARY_COVERS}/isbn/${encodeURIComponent(isbn)}-${size}.jpg?default=false`;
-
-/** Our own cover endpoint. Same origin as the app, so a texture may sample it. */
-export const COVER_PROXY_PATH = '/api/cover';
 
 /**
  * The only hosts `/api/cover` will fetch from. Subdomains count, so

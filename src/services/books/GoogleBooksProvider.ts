@@ -2,9 +2,8 @@ import type { ExternalBook } from '@/models';
 import { env } from '@/config/env';
 import { appError, err, ok, type AppError, type Result } from '@/utils/result';
 import { fetchJson, toHttps } from './http';
+import { SEARCH_PROXY_PATH } from './endpoints';
 import type { BookProvider, SearchOptions } from './types';
-
-const ENDPOINT = 'https://www.googleapis.com/books/v1/volumes';
 
 interface GoogleVolume {
   id: string;
@@ -64,31 +63,37 @@ export class GoogleBooksProvider implements BookProvider {
   readonly id = 'google';
   readonly label = 'Google Books';
 
-  private readonly apiKey?: string;
-  /** So a broken key is reported once, not once per keystroke. */
-  private warnedAboutKey = false;
+  /**
+   * Our own search endpoint by default, which holds the API key. Overridable so
+   * a test can point it somewhere it controls; the response shape is Google's
+   * either way, because `/api/search` passes it through untouched.
+   */
+  private readonly endpoint: string;
+  /** So a refusal is reported once, not once per keystroke. */
+  private warnedAboutRefusal = false;
 
-  constructor(apiKey?: string) {
-    this.apiKey = apiKey;
+  constructor(endpoint: string = SEARCH_PROXY_PATH) {
+    this.endpoint = endpoint;
   }
 
   /**
-   * A 403 with a key set means the key is not usable from here, and the reader
-   * would never find out: `BookService` falls through to Open Library and they
-   * get results anyway, just with patchier metadata and covers. Correct for
-   * them, invisible for whoever has to fix it - so say it out loud in dev.
+   * A 403 means the search endpoint refused us, and the reader would never find
+   * out: `BookService` falls through to Open Library and they get results
+   * anyway, just with patchier metadata and covers. Correct for them, invisible
+   * for whoever has to fix it - so say it out loud in dev.
    */
   private noteRefusal(error: AppError): void {
-    if (error.kind !== 'forbidden' || !this.apiKey || this.warnedAboutKey) return;
-    this.warnedAboutKey = true;
+    if (error.kind !== 'forbidden' || this.warnedAboutRefusal) return;
+    this.warnedAboutRefusal = true;
     if (!env.isDev) return;
     console.warn(
-      '[the-stacks] Google Books refused the request (403) even though ' +
-        'VITE_GOOGLE_BOOKS_API_KEY is set, so searches are falling back to Open ' +
-        'Library. Usually the HTTP referrer restriction on the key: it has to ' +
-        `allow this origin (${window.location.origin}/*). Check that, that the ` +
-        'Books API is enabled on the same project, and that the key is not also ' +
-        'restricted by IP.',
+      `[the-stacks] ${this.endpoint} refused the request (403), so searches are ` +
+        'falling back to Open Library. Either GOOGLE_BOOKS_API_KEY is not usable ' +
+        '(check that the Books API is enabled on the same project, and that any ' +
+        `HTTP referrer restriction allows ${window.location.origin}/*), or the ` +
+        'request did not look like it came from this site. Note the key is NOT a ' +
+        'VITE_ variable any more: it is read by the server, so `pnpm dev` picks ' +
+        'up a change to it only on restart.',
     );
   }
 
@@ -99,11 +104,9 @@ export class GoogleBooksProvider implements BookProvider {
     const params = new URLSearchParams({
       q: trimmed,
       maxResults: String(Math.min(options.limit ?? 12, 40)),
-      printType: 'books',
     });
-    if (this.apiKey) params.set('key', this.apiKey);
 
-    const result = await fetchJson<GoogleVolumesResponse>(`${ENDPOINT}?${params.toString()}`, {
+    const result = await fetchJson<GoogleVolumesResponse>(`${this.endpoint}?${params.toString()}`, {
       signal: options.signal,
     });
     if (!result.ok) {
@@ -115,9 +118,9 @@ export class GoogleBooksProvider implements BookProvider {
   }
 
   async getById(sourceId: string, options: SearchOptions = {}): Promise<Result<ExternalBook>> {
-    const suffix = this.apiKey ? `?key=${encodeURIComponent(this.apiKey)}` : '';
+    const params = new URLSearchParams({ id: sourceId });
 
-    const result = await fetchJson<GoogleVolume>(`${ENDPOINT}/${sourceId}${suffix}`, {
+    const result = await fetchJson<GoogleVolume>(`${this.endpoint}?${params.toString()}`, {
       signal: options.signal,
     });
     if (!result.ok) return result;

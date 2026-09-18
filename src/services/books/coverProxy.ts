@@ -10,6 +10,7 @@
  * an injected `fetch` and no server at all.
  */
 
+import { refuse, type FetchLike } from './apiResponse.ts';
 import { proxyableCoverUrl } from './covers.ts';
 
 /** Covers run to tens of kilobytes. Anything this big is not cover art. */
@@ -24,19 +25,6 @@ const UPSTREAM_TIMEOUT_MS = 8_000;
  * endpoint at all: the second visitor's texture costs no upstream request.
  */
 const CACHE_CONTROL = 'public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800';
-
-/**
- * Every refusal is a plain status with no body worth reading. The caller's next
- * move is the same in all cases - try the next candidate, then draw a cover -
- * so the codes are for whoever is reading the network tab, not for the app.
- */
-const refuse = (status: number, reason: string): Response =>
-  new Response(reason, {
-    status,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
-  });
-
-export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 /** Fetches one cover and re-serves its bytes from this origin. */
 export const respondWithCover = async (

@@ -5,7 +5,12 @@
 export type ProviderId = 'google' | 'openlibrary';
 
 export const env = {
-  googleBooksApiKey: import.meta.env.VITE_GOOGLE_BOOKS_API_KEY?.trim() || undefined,
+  /*
+   * There is deliberately no Google Books key here. It lives in
+   * `GOOGLE_BOOKS_API_KEY`, with no `VITE_` prefix, and is read by
+   * `api/search.ts` on the server - see `services/books/searchProxy.ts`.
+   * Anything in this object is inlined into the bundle and therefore public.
+   */
   /**
    * Neon project base URL, e.g. `https://ep-xxx.<region>.aws.neon.tech/<db>`.
    * The client derives the Data API and auth hosts from it, so this is the only

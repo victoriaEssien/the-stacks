@@ -79,13 +79,17 @@ These come from the spec's agent instructions. Do not quietly break them.
     shelf layout - is pure and does not care what is driving the camera, so a
     third scheme (a gamepad, say) is one more sibling and no edits elsewhere.
 
-11. **`api/` is ours, and it is the only server there is.** One Vercel
-    function so far, `api/cover.ts`. Two rules make it maintainable: TypeScript
-    path aliases do NOT work inside `api/` (Vercel's own docs say so), so
-    imports there are relative and carry a `.ts` extension; and the behaviour
-    lives in `src/services/` so that `tooling/coverProxyPlugin.ts` can mount the
-    SAME handler on the dev server. A second implementation for `pnpm dev` would
-    be the one that is never tested and never right.
+11. **`api/` is ours, and it is the only server there is.** Two Vercel
+    functions: `api/cover.ts` and `api/search.ts`. Three rules keep them
+    maintainable. TypeScript path aliases do NOT work inside `api/` (Vercel's
+    own docs say so), so imports there are relative and carry a `.ts`
+    extension. The behaviour lives in `src/services/books/` so that
+    `tooling/apiDevPlugin.ts` can mount the SAME handlers on the dev server; a
+    second implementation for `pnpm dev` would be the one that is never tested
+    and never right. And the client imports endpoint PATHS from
+    `services/books/endpoints.ts`, never from a handler's module, so a server
+    handler is not in the browser's module graph waiting on tree shaking to
+    save it.
 
 ## The cover proxy
 
@@ -124,6 +128,42 @@ These come from the spec's agent instructions. Do not quietly break them.
   book nobody has scanned, 502 for anything else. The app treats all three the
   same — try the next candidate, then draw a cover — so the codes are for
   whoever is reading the network tab.
+
+## The search endpoint
+
+`/api/search?q=<query>` (or `?id=<volume id>`) is Google Books with the key
+held server side.
+
+- **`GOOGLE_BOOKS_API_KEY` has no `VITE_` prefix, and that is the point.** A
+  `VITE_` variable is inlined into the bundle and is therefore public; this one
+  is read by `api/search.ts` from `process.env`. Verified after the move: the
+  key appears in no built asset, and the browser can reach neither it nor
+  `googleapis.com`. Because the key is no longer public, its HTTP referrer
+  restriction is now a convenience rather than the thing protecting it.
+- **`pnpm dev` reads it through `loadEnv(mode, envDir, '')`** in the dev plugin,
+  with an empty prefix so unprefixed variables are included. A change to the key
+  therefore needs a dev server RESTART, not a reload. The plugin warns on boot
+  when it is missing rather than letting searches be quietly rate limited.
+- **The endpoint is a PIPE: Google's JSON goes back untouched**, so
+  `GoogleBooksProvider` keeps the only copy of the normalising code and nothing
+  outside `services/books/` learns a provider's response shape. It forwards only
+  a query or a volume id, never the caller's other parameters, because passing
+  those through would make it a general purpose Google Books proxy carrying our
+  key.
+- **Upstream status codes are passed through, bodies are not.** `fetchJson`
+  turns 429 into a rate limit and 403 into a refused key, and `BookService`
+  falls through to Open Library on either, so flattening everything into a 502
+  would lose working behaviour. The body is dropped because Google's error JSON
+  quotes the key back at you.
+- **`callerOrigin` is a deterrent, not a security boundary.** It checks
+  `Sec-Fetch-Site` and `Referer`, both of which come from the caller. It is
+  there because this endpoint spends our Google quota, and without it the
+  endpoint is a keyless Google Books API that anyone reading the page source can
+  point a scraper at. Browsers send those headers honestly, so it stops the
+  casual version, which is the only version that was going to happen. Both
+  headers are consulted because neither is universal, and the origin it returns
+  is forwarded to Google as the `Referer` so a referrer-restricted key keeps
+  working from a server.
 
 ## Touch
 
@@ -285,16 +325,15 @@ real Chrome, and they are the reason the loading states are where they are.
 - Cover textures are cached by URL and never evicted, and so are the spine
   colours sampled from them (`three/materials/useCoverColor.ts`). Fine for a
   personal library; a shared one would want an LRU.
-- Google Books rate-limits unkeyed clients by IP, so searches quietly fall back
-  to Open Library, whose metadata and cover coverage are patchier. Set
-  `VITE_GOOGLE_BOOKS_API_KEY` to stay on Google.
-- A key with an HTTP referrer restriction has to allow the origin the app is
-  served from — `http://localhost:5173/*` for `pnpm dev`. The app sends
-  `Referer: <origin>/` under the browser default `strict-origin-when-cross-origin`;
-  a report of `referer <empty>` therefore came from curl, Postman or an address
-  bar, NOT from the app. A refused key is not fatal (searches fall through to
-  Open Library) so it is easy not to notice — `GoogleBooksProvider` warns once
-  in dev when it gets a 403 with a key set.
+- Google Books rate-limits unkeyed callers by IP, so with no
+  `GOOGLE_BOOKS_API_KEY` set, searches quietly fall back to Open Library and its
+  patchier metadata. A refused key is not fatal for the same reason, so it is
+  easy not to notice — `GoogleBooksProvider` warns once in dev on a 403.
+- `/api/search` has no rate limit of its own. The same-origin check turns away
+  casual use and the CDN serves a repeated query for free, but someone
+  determined can still spend the day's Google quota, after which searches fall
+  back to Open Library until it resets. That costs nothing but patchier results,
+  and only the owner can search at all, so it is not worth a token check yet.
 - `Panel` has no focus trap. Escape closes and focus is visible, but Tab can
   still walk behind an open dialog.
 - The touch shell has no history integration: Android's back gesture leaves the

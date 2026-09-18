@@ -61,11 +61,11 @@ src/
 
 Copy `.env.example` to `.env`. Everything in it is optional:
 
-| Variable                    | Purpose                                                                 |
-| --------------------------- | ----------------------------------------------------------------------- |
-| `VITE_GOOGLE_BOOKS_API_KEY` | Raises the rate limit. **Public** — use a referrer-restricted key only. |
-| `VITE_BOOK_PROVIDER`        | `google` (default) or `openlibrary` — which provider is tried first.    |
-| `VITE_STORAGE_NAMESPACE`    | Prefix for localStorage keys.                                           |
+| Variable                 | Purpose                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| `GOOGLE_BOOKS_API_KEY`   | Raises the rate limit. **Server only** — read by `api/search.ts`, never bundled. |
+| `VITE_BOOK_PROVIDER`     | `google` (default) or `openlibrary` — which provider is tried first.             |
+| `VITE_STORAGE_NAMESPACE` | Prefix for localStorage keys.                                                    |
 
 ## Stack
 

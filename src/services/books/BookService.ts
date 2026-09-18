@@ -76,7 +76,10 @@ export class BookService {
 }
 
 const buildProviders = (preferred: ProviderId): BookProvider[] => {
-  const google = new GoogleBooksProvider(env.googleBooksApiKey);
+  // No key passed: `GoogleBooksProvider` talks to our own `/api/search`, which
+  // holds it. Open Library needs none and is called from the browser directly,
+  // so it stays the fallback even when our endpoint is down.
+  const google = new GoogleBooksProvider();
   const openLibrary = new OpenLibraryProvider();
   return preferred === 'openlibrary' ? [openLibrary, google] : [google, openLibrary];
 };

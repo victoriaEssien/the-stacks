@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { COVER_PROXY_PATH } from '../endpoints';
 import {
   COVER_HOSTS,
-  COVER_PROXY_PATH,
   coverUrlFromIsbn,
   OPEN_LIBRARY_COVERS,
   proxiedCoverUrl,

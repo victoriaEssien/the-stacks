@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { FetchLike } from '../coverProxy';
+import type { FetchLike } from '../apiResponse';
 import { handleCoverRequest, respondWithCover } from '../coverProxy';
 
 const PIXEL = 'not really a jpeg, but bytes all the same';
