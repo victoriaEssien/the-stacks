@@ -159,6 +159,25 @@ have read. **Fix this before the library goes public**, either with a status
 chip on the card or by grouping the grid into read, reading and want-to-read.
 The room is unaffected; it shelves `read` only.
 
+## Migrating the books already in your browser
+
+Built, and deliberately an action rather than something that happens on load: a
+silent import that half-finishes leaves a library nobody can reason about.
+
+Once signed in, a banner offers the move if this browser is holding anything the
+database does not have. The panel lists the titles, imports via `saveMany`
+(upserts, so running it twice is harmless), then re-reads the shared library so
+what appears is what actually landed rather than what was hoped for.
+
+**Nothing is deleted from localStorage.** Until the database has the books the
+browser holds the only copy, and it costs nothing to leave behind afterwards.
+`localBookBackup` reads that store directly rather than through
+`bookRepository`, because once the app points at Neon those are no longer the
+same thing.
+
+The scan only runs for a signed-in owner. A visitor's own localStorage is none
+of this library's business, and nothing could be written with it anyway.
+
 ## Still to decide
 
 - **Hosting.** Nothing is deployed yet, so "people coming in" cannot happen

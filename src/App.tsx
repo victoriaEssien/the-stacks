@@ -6,6 +6,7 @@ import {
   HelpPanel,
   LibraryHud,
   ListModeLibrary,
+  LocalBackupPanel,
   OwnerSignIn,
   ReadingStats,
   type HudTab,
@@ -14,6 +15,7 @@ import { SuggestionsPanel } from '@/components/suggestions';
 import { ErrorNote, LoadingVeil } from '@/components/ui';
 import { useIsCoarsePointer, useLibraryBootstrap, useReducedMotion, useSignInHash } from '@/hooks';
 import { selectCanEdit, useAuthStore } from '@/stores/authStore';
+import { selectHasLocalBooks, useMigrationStore } from '@/stores/migrationStore';
 import { LibraryCanvas, LibraryScene } from '@/three';
 import { selectCurrentlyReading, selectShelvedBooks, useLibraryStore } from '@/stores/libraryStore';
 import { useSuggestionStore } from '@/stores/suggestionStore';
@@ -54,6 +56,9 @@ export const App = () => {
   const signedIn = useAuthStore((state) => state.session !== undefined);
   const restoreSession = useAuthStore((state) => state.restore);
   const endSession = useAuthStore((state) => state.signOut);
+
+  const hasLocalBooks = useMigrationStore(selectHasLocalBooks);
+  const scanLocalBooks = useMigrationStore((state) => state.scan);
 
   const books = useLibraryStore((state) => state.books);
   const libraryError = useLibraryStore((state) => state.error);
@@ -131,6 +136,13 @@ export const App = () => {
   useEffect(() => {
     void restoreSession();
   }, [restoreSession]);
+
+  // Look for books this browser is still holding, but only once the owner is
+  // signed in: a visitor's own localStorage is none of this library's business,
+  // and nothing could be written anyway.
+  useEffect(() => {
+    if (signedIn) void scanLocalBooks();
+  }, [signedIn, scanLocalBooks]);
 
   // The owner's unadvertised way in. Nothing on screen points at it.
   const requestSignIn = useCallback(() => openOverlay('sign-in'), [openOverlay]);
@@ -217,6 +229,18 @@ export const App = () => {
         onToggleViewMode={toggleViewMode}
       />
 
+      {hasLocalBooks && overlay === 'none' && (
+        <div className="pointer-events-auto fixed inset-x-3 bottom-20 z-40 flex justify-center sm:bottom-6">
+          <button
+            type="button"
+            onClick={() => openOverlay('local-backup')}
+            className="rounded-full border border-brass/50 bg-ink-800/95 px-4 py-2 text-sm text-parchment shadow-lg shadow-black/40 backdrop-blur-sm hover:border-brass"
+          >
+            This browser is holding books the library does not have. Move them?
+          </button>
+        </div>
+      )}
+
       {loadState === 'error' && libraryError && (
         <div className="pointer-events-auto fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:right-5 sm:w-96">
           <ErrorNote message={libraryError.message} onRetry={clearLibraryError} />
@@ -232,6 +256,7 @@ export const App = () => {
       )}
       {overlay === 'help' && <HelpPanel navigation={navigation} onClose={closeOverlay} />}
       {overlay === 'sign-in' && <OwnerSignIn onClose={closeOverlay} />}
+      {overlay === 'local-backup' && <LocalBackupPanel onClose={closeOverlay} />}
       {overlay === 'book-info' && selectedBook && (
         <BookInfoPanel book={selectedBook} onClose={closeOverlay} />
       )}

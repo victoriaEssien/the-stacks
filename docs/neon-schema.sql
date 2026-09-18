@@ -89,12 +89,15 @@ create policy suggestions_public_insert on suggestions
 -- policy for `anonymous`, so a visitor can post but cannot read the box.
 
 -- ===========================================================================
--- STEP 2: sign in to the app once, then run
+-- STEP 2: needs the owner's user id.
 --
---     select auth.user_id();
+-- Either sign in to the app and run `select auth.user_id();`, or read it
+-- straight from the auth tables without signing in at all:
 --
--- and replace BOTH occurrences of OWNER_ID below with the value it returns
--- (keep the single quotes). Nothing above this line needs changing.
+--     select id, email from neon_auth.user;
+--
+-- Replace every OWNER_ID below with that value, keeping the single quotes.
+-- Nothing above this line needs changing.
 -- ===========================================================================
 
 -- Refuses to run until the placeholder is replaced. Pasting the whole file in
@@ -111,8 +114,11 @@ begin
   end if;
 end $$;
 
--- So the app never sends owner_id, and cannot get it wrong.
-alter table books alter column owner_id set default 'OWNER_ID';
+-- Binds each row to whoever actually wrote it, so the app never sends owner_id
+-- and cannot get it wrong. Paired with the literal in the policy below this
+-- fails CLOSED: if auth.user_id() ever returned something other than the owner,
+-- an insert errors rather than quietly recording the wrong owner.
+alter table books alter column owner_id set default auth.user_id();
 
 -- Pinned to your literal id rather than "any authenticated user", so the
 -- library stays yours even if sign-up is ever opened by accident.

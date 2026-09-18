@@ -1,11 +1,9 @@
-import { env } from '@/config/env';
 import { isBook, isSuggestion, type Book, type Suggestion } from '@/models';
 import { neonClient } from '@/services/neon';
+import { storageKey } from './keys';
 import { LocalStorageRepository } from './LocalStorageRepository';
 import { NeonRepository } from './NeonRepository';
 import type { Repository } from './types';
-
-const ns = (name: string) => `${env.storageNamespace}:${name}:v1`;
 
 /**
  * The app's two collections, chosen by configuration.
@@ -18,11 +16,11 @@ const client = neonClient();
 
 const bookStore: Repository<Book> = client
   ? new NeonRepository<Book>('books', isBook, client)
-  : new LocalStorageRepository<Book>(ns('books'), isBook);
+  : new LocalStorageRepository<Book>(storageKey('books'), isBook);
 
 const suggestionStore: Repository<Suggestion> = client
   ? new NeonRepository<Suggestion>('suggestions', isSuggestion, client)
-  : new LocalStorageRepository<Suggestion>(ns('suggestions'), isSuggestion);
+  : new LocalStorageRepository<Suggestion>(storageKey('suggestions'), isSuggestion);
 
 export const bookRepository = bookStore;
 export const suggestionRepository = suggestionStore;
