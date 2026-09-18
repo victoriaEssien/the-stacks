@@ -68,3 +68,33 @@ describe('BookDetailsForm cover field', () => {
     expect(field.value).toBe('https://example.com/chosen.jpg');
   });
 });
+
+/**
+ * A cover from a host the proxy will not fetch still shows in the panel and in
+ * Shelf view, because those are plain `<img>` tags. The room cannot show it.
+ * That asymmetry has to be visible in the form, or it looks like a bug later.
+ */
+describe('BookDetailsForm cover host warning', () => {
+  it('names the host the room cannot load from', () => {
+    const { field } = renderForm();
+    fireEvent.change(field, { target: { value: 'https://i.imgur.com/abc.jpg' } });
+    expect(screen.getByText(/i\.imgur\.com/)).toBeTruthy();
+    expect(screen.getByText(/shelf will draw a cover/i)).toBeTruthy();
+  });
+
+  it('says nothing for a host the room can load from', () => {
+    const { field } = renderForm();
+    fireEvent.change(field, {
+      target: { value: 'https://m.media-amazon.com/images/I/abc.jpg' },
+    });
+    expect(screen.queryByText(/shelf will draw a cover/i)).toBeNull();
+  });
+
+  it('does not complain part way through typing a URL', () => {
+    const { field } = renderForm();
+    for (const partial of ['h', 'https:/', 'https://boo']) {
+      fireEvent.change(field, { target: { value: partial } });
+      expect(screen.queryByText(/shelf will draw a cover/i), partial).toBeNull();
+    }
+  });
+});

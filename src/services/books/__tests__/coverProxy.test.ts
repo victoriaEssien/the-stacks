@@ -62,6 +62,8 @@ describe('respondWithCover', () => {
       'https://169.254.169.254/latest',
       'https://localhost/x',
       'file:///etc/hosts',
+      // Public, reachable, and still not ours to fetch.
+      'https://example.com/cover.jpg',
     ]) {
       expect((await respondWithCover(src, fetchImpl)).status, src).toBe(400);
     }
@@ -86,7 +88,7 @@ describe('respondWithCover', () => {
 
   it('refuses to hand back something that is not an image', async () => {
     const response = await respondWithCover(
-      'https://example.com/login.html',
+      'https://books.google.com/login.html',
       stubFetch(imageResponse({ type: 'text/html' })),
     );
     expect(response.status).toBe(502);
@@ -94,7 +96,7 @@ describe('respondWithCover', () => {
 
   it('refuses an image far too large to be cover art', async () => {
     const response = await respondWithCover(
-      'https://example.com/huge.jpg',
+      'https://books.google.com/huge.jpg',
       stubFetch(imageResponse({ length: 40 * 1024 * 1024 })),
     );
     expect(response.status).toBe(502);
@@ -102,7 +104,7 @@ describe('respondWithCover', () => {
 
   it('serves a cover that declares a sane length', async () => {
     const response = await respondWithCover(
-      'https://example.com/cover.jpg',
+      'https://books.google.com/cover.jpg',
       stubFetch(imageResponse({ length: PIXEL.length })),
     );
     expect(response.status).toBe(200);

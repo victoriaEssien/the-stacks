@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { BookDetails, ExternalBook, ReadingStatus } from '@/models';
+import { proxiedCoverUrl } from '@/services/books';
 import { Button, Field, StarRating, TextArea, TextInput } from '@/components/ui';
 import { BookCover } from './BookCover';
 
@@ -40,6 +41,27 @@ export const BookDetailsForm = ({
 
   const patch = (changes: Partial<BookDetails>) => setRecord((prev) => ({ ...prev, ...changes }));
 
+  /**
+   * The 3D room can only texture a cover from a host on `COVER_HOSTS`, so a URL
+   * from anywhere else shows in every view except the shelf itself. Say which
+   * host and what will happen, rather than letting it be found out later - that
+   * silent split is the whole fault the cover proxy was built to remove.
+   *
+   * Only reported once the value parses as a URL with a real host, so it does
+   * not flash a complaint at every keystroke of someone typing one out.
+   */
+  const unroomableHost = (() => {
+    const raw = record.coverImage?.trim();
+    if (!raw) return undefined;
+    try {
+      const { hostname } = new URL(raw);
+      if (!hostname.includes('.')) return undefined;
+      return proxiedCoverUrl(raw) ? undefined : hostname;
+    } catch {
+      return undefined;
+    }
+  })();
+
   return (
     <form
       className="space-y-5"
@@ -67,7 +89,11 @@ export const BookDetailsForm = ({
 
       <Field
         label="Cover image URL"
-        hint="Paste one to use your own art. Empty means a drawn cover."
+        hint={
+          unroomableHost
+            ? `The room cannot load from ${unroomableHost}, so the shelf will draw a cover. Every other view shows your image.`
+            : 'Paste one to use your own art. Empty means a drawn cover.'
+        }
       >
         <TextInput
           type="url"

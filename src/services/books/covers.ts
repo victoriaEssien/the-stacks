@@ -32,22 +32,47 @@ export const coverUrlFromIsbn = (isbn: string, size: 'S' | 'M' | 'L'): string =>
 /** Our own cover endpoint. Same origin as the app, so a texture may sample it. */
 export const COVER_PROXY_PATH = '/api/cover';
 
-/** Hostnames that are never a public CDN, whatever a pasted URL claims. */
-const PRIVATE_HOST = /^(localhost|.*\.(local|internal|localhost|home\.arpa))$/i;
-const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
+/**
+ * The only hosts `/api/cover` will fetch from. Subdomains count, so
+ * `archive.org` covers the `ia600505.us.archive.org` mirror a cover redirects
+ * to, and a lookalike like `books.google.com.example.test` does not match.
+ *
+ * An allowlist rather than a guard against obviously-bad URLs, because this
+ * library is public: without one the endpoint is a general purpose image proxy
+ * that anybody can point at anything and bill to us. The cost of that choice is
+ * that a cover pasted from somewhere else shows everywhere EXCEPT the 3D room,
+ * which the edit form says out loud rather than leaving to be discovered.
+ *
+ * These are the places book covers actually live. The first three are the app's
+ * own providers; the rest are where a cover the providers lack is usually found
+ * (Wikimedia for the out of print, Amazon's CDN for everything Goodreads shows).
+ * Adding one is a line here, and it applies to both the client and the endpoint
+ * because both call `proxyableCoverUrl`.
+ */
+export const COVER_HOSTS = [
+  'books.google.com',
+  'books.googleusercontent.com',
+  'covers.openlibrary.org',
+  'archive.org',
+  'upload.wikimedia.org',
+  'm.media-amazon.com',
+  'images-na.ssl-images-amazon.com',
+  'i.gr-assets.com',
+  's.gr-assets.com',
+] as const;
+
+const isCoverHost = (hostname: string): boolean =>
+  COVER_HOSTS.some((host) => hostname === host || hostname.endsWith(`.${host}`));
 
 /**
  * The URL the proxy would actually fetch, or `undefined` to refuse.
  *
- * The reader can paste a cover URL from anywhere (see the edit form), so this
- * cannot be a list of known CDNs - but it must not turn the endpoint into a way
- * to reach things that are not on the public internet. Hence: HTTPS only, no
- * embedded credentials, no default-less port, and nothing addressed by IP or by
- * a name with no public DNS to it. `api/cover.ts` enforces the rest - image
- * content types, a size cap and a timeout - on the response.
+ * `api/cover.ts` enforces the rest - image content types, a size cap and a
+ * timeout - on the response, because a host being the right host says nothing
+ * about what it returns today.
  *
  * `http:` is upgraded rather than refused: some providers still hand out plain
- * HTTP cover links, and every host that serves one also serves it over TLS.
+ * HTTP cover links, and every host on the list also serves them over TLS.
  */
 export const proxyableCoverUrl = (raw: string): URL | undefined => {
   let url: URL;
@@ -58,13 +83,11 @@ export const proxyableCoverUrl = (raw: string): URL | undefined => {
   }
 
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
+  // Nothing on the list wants credentials, and forwarding them would make this
+  // a credential-carrying hop for no reason.
   if (url.username || url.password) return undefined;
   if (url.port && url.port !== '443' && url.port !== '80') return undefined;
-
-  const host = url.hostname;
-  // A colon survives in `hostname` only for IPv6; brackets are stripped.
-  if (IPV4.test(host) || host.includes(':') || !host.includes('.')) return undefined;
-  if (PRIVATE_HOST.test(host)) return undefined;
+  if (!isCoverHost(url.hostname)) return undefined;
 
   url.protocol = 'https:';
   url.port = '';
@@ -90,6 +113,15 @@ export interface CoverSource {
  * and they should match. Open Library by ISBN stays as a second try, for the
  * books a provider gave no cover URL for at all and for the day a jacket link
  * rots. Both go through the proxy, so the room only ever loads from one origin.
+ *
+ * Deliberately NOT asked for at a larger size. Google's `imageLinks` advertise
+ * only a 128px thumbnail for most volumes, and the bigger request forms were
+ * measured across eight of them: `&w=800` gave a placeholder for three, an
+ * 800x128 distorted strip for two, and the real scan for one; `&zoom=0` was
+ * worse. Google marks the placeholder with `max-age=30` where a real scan gets
+ * `max-age=86400`, but nothing marks the distorted ones, so a large cover can
+ * only be trusted after comparing it against the thumbnail it should match -
+ * which is a job for one check when a book is added, not for every render.
  *
  * Returns an empty list when there is nothing worth trying; the caller falls
  * back to a generated cover, which is CORS-free because it never leaves the tab.

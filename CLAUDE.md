@@ -98,13 +98,20 @@ These come from the spec's agent instructions. Do not quietly break them.
   in the room, and wore nothing at all when Open Library had no scan behind that
   ISBN. Routing textures through our own origin removes the fork: `<img>` and
   texture now load the same bytes.
-- **`proxyableCoverUrl` decides what may be fetched, and it is not a list of
-  known CDNs** — it cannot be, because the reader can paste a cover URL from
-  anywhere. It is a guard instead: HTTPS only (`http:` is upgraded, not
-  refused), no embedded credentials, no odd port, and nothing addressed by IP or
-  by a name with no public DNS behind it, so the endpoint is not a way to reach
-  things that are not on the internet. The response side adds the rest: image
-  content types only, a 5 MB cap and an 8 second timeout.
+- **`proxyableCoverUrl` is an allowlist (`COVER_HOSTS`), not a guard.** This
+  library is public, so without one the endpoint is a general purpose image
+  proxy anybody can point at anything and bill to us. Subdomains count, so
+  `archive.org` covers the mirror an Open Library cover redirects to, and
+  `books.google.com.example.test` does not match. It also insists on HTTPS
+  (`http:` is upgraded, not refused), no embedded credentials and no odd port.
+  The response side adds the rest: image content types only, a 5 MB cap and an 8
+  second timeout, because a host being the right host says nothing about what it
+  returns today.
+- **The cost of the allowlist is that a cover pasted from somewhere else shows
+  everywhere EXCEPT the room**, so the edit form names the host and says what
+  will happen rather than leaving it to be discovered. Adding a host is one line
+  in `COVER_HOSTS`, and it applies to the client and the endpoint together
+  because both call `proxyableCoverUrl`.
 - Redirects are followed, because Open Library answers through two hops to
   archive.org. The hop targets are chosen by the upstream host and not by the
   caller, so this does not widen what the guard just decided.
@@ -242,6 +249,18 @@ real Chrome, and they are the reason the loading states are where they are.
   URL is present. That row says it in words because the generated cover is
   drawn at 400x600 and rendered at 56 wide, where its title is unreadable and it
   degrades into a blank-looking swatch.
+- **Book covers are 128px because that is all Google advertises.** Its
+  `imageLinks` offer only `thumbnail` and `smallThumbnail` for most volumes,
+  even ones it holds a 1744px scan of, so `coverImage` is a 128x193 thumbnail
+  stretched across a book the reader can walk up to. Asking for a bigger one is
+  a lottery, measured across eight volumes: `&w=800` returned a placeholder for
+  three, an 800x128 distorted strip for two, and the real scan for one; `&zoom=0`
+  was worse. Google marks the placeholder with `Cache-Control: max-age=30` where
+  a real scan gets `max-age=86400` — but nothing marks the distorted ones, so a
+  large URL can only be trusted by comparing its aspect ratio against the
+  thumbnail it should match. That is one check when a book is ADDED, not
+  something to redo on every render, which is why the room asks for the cover
+  exactly as stored. Storing our own bytes would settle it for good.
 - `BookService` already memoises searches by query for the session
   (`searchCache`), so typing back and forth does not re-hit the API. It is
   unbounded; a session long enough for that to matter would be surprising.
