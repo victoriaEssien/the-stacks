@@ -10,7 +10,7 @@
  * there would be two implementations and only one of them would be tested.
  */
 
-import { handleCoverRequest } from '../src/services/books/coverProxy.ts';
+import { handleCoverRequest } from '../src/services/books/coverProxy.js';
 
 export default {
   fetch: (request: Request): Promise<Response> => handleCoverRequest(request),

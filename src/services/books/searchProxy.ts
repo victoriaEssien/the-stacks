@@ -17,7 +17,7 @@
  * outside this folder learns a provider's response shape.
  */
 
-import { callerOrigin, refuse, type FetchLike } from './apiResponse.ts';
+import { callerOrigin, refuse, type FetchLike } from './apiResponse.js';
 
 const GOOGLE_VOLUMES = 'https://www.googleapis.com/books/v1/volumes';
 

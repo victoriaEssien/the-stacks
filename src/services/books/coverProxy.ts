@@ -10,8 +10,8 @@
  * an injected `fetch` and no server at all.
  */
 
-import { refuse, type FetchLike } from './apiResponse.ts';
-import { proxyableCoverUrl } from './covers.ts';
+import { refuse, type FetchLike } from './apiResponse.js';
+import { proxyableCoverUrl } from './covers.js';
 
 /** Covers run to tens of kilobytes. Anything this big is not cover art. */
 const MAX_BYTES = 5 * 1024 * 1024;

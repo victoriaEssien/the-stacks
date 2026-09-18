@@ -6,7 +6,7 @@
  * `src/services/books/searchProxy.ts` for why this endpoint exists.
  */
 
-import { respondWithSearch } from '../src/services/books/searchProxy.ts';
+import { respondWithSearch } from '../src/services/books/searchProxy.js';
 
 export default {
   fetch: (request: Request): Promise<Response> =>

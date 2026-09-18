@@ -80,16 +80,26 @@ These come from the spec's agent instructions. Do not quietly break them.
     third scheme (a gamepad, say) is one more sibling and no edits elsewhere.
 
 11. **`api/` is ours, and it is the only server there is.** Two Vercel
-    functions: `api/cover.ts` and `api/search.ts`. Three rules keep them
-    maintainable. TypeScript path aliases do NOT work inside `api/` (Vercel's
-    own docs say so), so imports there are relative and carry a `.ts`
-    extension. The behaviour lives in `src/services/books/` so that
-    `tooling/apiDevPlugin.ts` can mount the SAME handlers on the dev server; a
-    second implementation for `pnpm dev` would be the one that is never tested
-    and never right. And the client imports endpoint PATHS from
-    `services/books/endpoints.ts`, never from a handler's module, so a server
-    handler is not in the browser's module graph waiting on tree shaking to
-    save it.
+    functions: `api/cover.ts` and `api/search.ts`. Four rules keep them working.
+    - TypeScript path aliases do NOT work inside `api/` (Vercel's own docs say
+      so), so imports there are relative.
+    - **Those imports name the COMPILED file: `./covers.js`, not
+      `./covers.ts`.** Vercel transpiles each function file on its own and
+      leaves the specifier untouched, so a `.ts` specifier resolves to a file
+      that is no longer there. This is not theoretical - it took production down
+      with `ERR_MODULE_NOT_FOUND: /var/task/src/services/books/coverProxy.ts`.
+      It is the ordinary TypeScript ESM convention and `tsc` resolves it back to
+      the `.ts` source.
+    - The behaviour lives in `src/services/books/` so that
+      `tooling/apiDevPlugin.ts` can run the SAME handlers on the dev server; a
+      second implementation for `pnpm dev` would be the one that is never tested
+      and never right. It reaches them through `ssrLoadModule`, NOT an import,
+      so that nothing under `src/` is in the Vite config's runtime graph - Vite
+      resolves a `.js` specifier to a `.ts` file, and the Node-based config
+      loader that Vite is moving to would not.
+    - The client imports endpoint PATHS from `services/books/endpoints.ts`,
+      never from a handler's module, so a server handler is not in the browser's
+      module graph waiting on tree shaking to save it.
 
 ## The cover proxy
 

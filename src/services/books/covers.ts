@@ -15,7 +15,7 @@
  * source of art per book, and the CORS question stops arising.
  */
 
-import { COVER_PROXY_PATH } from './endpoints.ts';
+import { COVER_PROXY_PATH } from './endpoints.js';
 
 export const OPEN_LIBRARY_COVERS = 'https://covers.openlibrary.org/b';
 
