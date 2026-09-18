@@ -20,7 +20,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         codeSplitting: {
-          groups: [{ name: 'three', test: /[\\/]node_modules[\\/]three[\\/]/ }],
+          groups: [
+            { name: 'three', test: /[\\/]node_modules[\\/]three[\\/]/ },
+            // The Neon SDK moves on its own release cycle, not with app code,
+            // so it earns its own long-lived chunk rather than invalidating the
+            // app bundle every time a component changes.
+            { name: 'neon', test: /[\\/]node_modules[\\/](@neondatabase|zod)[\\/]/ },
+          ],
         },
       },
     },
@@ -29,5 +35,14 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    env: {
+      // Pinned, because Vitest loads .env.local the same way the dev server
+      // does. Without this the suite reaches for whatever database the person
+      // running it happens to have configured, and `App.test.tsx` - which
+      // seeds localStorage - quietly tests nothing. Unit tests talk to no
+      // network; the Neon path is covered by injecting a fake client.
+      VITE_NEON_URL: '',
+      VITE_GOOGLE_BOOKS_API_KEY: '',
+    },
   },
 });

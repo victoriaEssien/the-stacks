@@ -39,6 +39,7 @@ export const SuggestionsPanel = ({ placement, onClose }: SuggestionsPanelProps) 
   const setStatus = useSuggestionStore((state) => state.setStatus);
   const removeSuggestion = useSuggestionStore((state) => state.removeSuggestion);
   const error = useSuggestionStore((state) => state.error);
+  const readOnlyBox = useSuggestionStore((state) => state.readOnlyBox);
 
   const [form, setForm] = useState({ title: '', author: '', note: '' });
   const [justAdded, setJustAdded] = useState(false);
@@ -110,47 +111,60 @@ export const SuggestionsPanel = ({ placement, onClose }: SuggestionsPanelProps) 
 
       <hr className="my-6 border-ink-600" />
 
-      <h3 className="mb-3 font-serif text-lg text-parchment">
-        Inside the box{suggestions.length > 0 ? ` (${suggestions.length})` : ''}
-      </h3>
-
-      {suggestions.length === 0 ? (
-        <EmptyState title="Empty for now" body="Suggestions you drop in will pile up here." />
+      {/* A visitor may post through the slot but not read the pile. That is the
+          box working as intended, so it says so rather than showing an error. */}
+      {readOnlyBox ? (
+        <EmptyState
+          title="Posted and out of sight"
+          body="Only the owner of this library reads the box. Thank you for the recommendation."
+        />
       ) : (
-        <ul className="space-y-2">
-          {suggestions.map((suggestion) => (
-            <li key={suggestion.id} className="rounded-md border border-ink-600 px-3 py-2.5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-serif text-parchment">{suggestion.title}</p>
-                  {suggestion.author && (
-                    <p className="text-sm text-parchment-dim">{suggestion.author}</p>
-                  )}
-                  {suggestion.note && (
-                    <p className="mt-1 text-sm text-parchment-dim/85">{suggestion.note}</p>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    className="rounded border border-ink-500 px-2 py-1 text-xs text-parchment-dim hover:border-brass hover:text-brass"
-                    onClick={() => void setStatus(suggestion.id, NEXT_STATUS[suggestion.status])}
-                  >
-                    {STATUS_LABEL[suggestion.status]}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${suggestion.title}`}
-                    className="px-1.5 text-parchment-dim hover:text-ember"
-                    onClick={() => void removeSuggestion(suggestion.id)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <h3 className="mb-3 font-serif text-lg text-parchment">
+            Inside the box{suggestions.length > 0 ? ` (${suggestions.length})` : ''}
+          </h3>
+
+          {suggestions.length === 0 ? (
+            <EmptyState title="Empty for now" body="Suggestions you drop in will pile up here." />
+          ) : (
+            <ul className="space-y-2">
+              {suggestions.map((suggestion) => (
+                <li key={suggestion.id} className="rounded-md border border-ink-600 px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-serif text-parchment">{suggestion.title}</p>
+                      {suggestion.author && (
+                        <p className="text-sm text-parchment-dim">{suggestion.author}</p>
+                      )}
+                      {suggestion.note && (
+                        <p className="mt-1 text-sm text-parchment-dim/85">{suggestion.note}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        className="rounded border border-ink-500 px-2 py-1 text-xs text-parchment-dim hover:border-brass hover:text-brass"
+                        onClick={() =>
+                          void setStatus(suggestion.id, NEXT_STATUS[suggestion.status])
+                        }
+                      >
+                        {STATUS_LABEL[suggestion.status]}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${suggestion.title}`}
+                        className="px-1.5 text-parchment-dim hover:text-ember"
+                        onClick={() => void removeSuggestion(suggestion.id)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </Panel>
   );

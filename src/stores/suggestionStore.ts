@@ -7,6 +7,11 @@ import type { AppError } from '@/utils/result';
 interface SuggestionState {
   suggestions: Suggestion[];
   loadState: 'idle' | 'loading' | 'ready' | 'error';
+  /**
+   * True when the box is closed to whoever is looking: a visitor may post
+   * through the slot but not read what is inside.
+   */
+  readOnlyBox: boolean;
   error?: AppError;
   /** Incremented on every successful submission, so the 3D box can post a note. */
   submittedCount: number;
@@ -21,15 +26,26 @@ interface SuggestionState {
 export const useSuggestionStore = create<SuggestionState>((set, get) => ({
   suggestions: [],
   loadState: 'idle',
+  readOnlyBox: false,
   submittedCount: 0,
 
   load: async () => {
-    set({ loadState: 'loading', error: undefined });
+    set({ loadState: 'loading', error: undefined, readOnlyBox: false });
     const result = await suggestionRepository.list();
+
     if (!result.ok) {
+      // A refused read is not a fault. The suggestion box is deliberately a
+      // slot rather than a wall: anyone may drop a note in, only the owner may
+      // read the pile. Showing a visitor an error for working as intended would
+      // be wrong, so the box simply presents itself as write-only.
+      if (result.error.kind === 'forbidden') {
+        set({ suggestions: [], loadState: 'ready', readOnlyBox: true });
+        return;
+      }
       set({ loadState: 'error', error: result.error });
       return;
     }
+
     set({ suggestions: result.value, loadState: 'ready' });
   },
 

@@ -1,3 +1,9 @@
+# false on purpose. core-js only ships a postinstall that prints a funding
+# banner, and it works fine without it. Answered explicitly rather than left
+# unanswered, because pnpm exits non-zero on an undecided build script and that
+# blocks every other script in the repo.
+allowBuilds:
+  core-js: false
 # pnpm 11 holds back very fresh releases by default; these were current when
 # the project was scaffolded and are allowed through explicitly.
 minimumReleaseAgeExclude:

@@ -1,10 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Book } from '@/models';
 import { isBook } from '@/models';
-import { NeonRepository } from '../NeonRepository';
+import { NeonRepository, type NeonDataClient, type NeonQueryResult } from '../NeonRepository';
 import { fromRow, toColumn, toField, toRow } from '../rows';
-
-const BASE = 'https://api.example.test/v1';
 
 const BOOK: Book = {
   id: 'book_1',
@@ -20,39 +18,45 @@ const BOOK: Book = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
-interface Call {
-  url: string;
-  method?: string;
-  headers: Record<string, string>;
-  body?: unknown;
+interface Recorded {
+  table: string;
+  op: string;
+  args: unknown[];
 }
 
-const calls: Call[] = [];
+/** A stand-in for the Neon client, so none of this touches a network. */
+const fake = (result: NeonQueryResult | (() => never)) => {
+  const calls: Recorded[] = [];
+  const answer = (table: string, op: string, args: unknown[]) => {
+    calls.push({ table, op, args });
+    if (typeof result === 'function') return result();
+    return Promise.resolve(result);
+  };
 
-const stub = (status: number, payload: unknown = []) => {
-  calls.length = 0;
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (url: unknown, init?: RequestInit) => {
-      calls.push({
-        url: String(url),
-        method: init?.method,
-        headers: (init?.headers ?? {}) as Record<string, string>,
-        body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
-      });
-      return {
-        ok: status >= 200 && status < 300,
-        status,
-        json: async () => payload,
-      };
+  const client: NeonDataClient = {
+    from: (table) => ({
+      select: () => answer(table, 'select', []),
+      upsert: (rows) => answer(table, 'upsert', [rows]),
+      delete: () => ({
+        eq: (column, value) => answer(table, 'delete.eq', [column, value]),
+        not: (column, operator, value) => answer(table, 'delete.not', [column, operator, value]),
+      }),
     }),
-  );
+  };
+
+  return { client, calls };
 };
 
-const repo = (getToken?: () => string | undefined) =>
-  new NeonRepository<Book>('books', isBook, { baseUrl: BASE, getToken });
+const repo = (result: NeonQueryResult | (() => never)) => {
+  const { client, calls } = fake(result);
+  return { store: new NeonRepository<Book>('books', isBook, client), calls };
+};
 
-afterEach(() => vi.unstubAllGlobals());
+const okResult = (data: unknown = null): NeonQueryResult => ({ data, error: null });
+const failResult = (code: string | null): NeonQueryResult => ({
+  data: null,
+  error: { message: 'nope', code },
+});
 
 describe('rows', () => {
   it('converts between model fields and columns', () => {
@@ -89,86 +93,85 @@ describe('rows', () => {
 });
 
 describe('NeonRepository', () => {
-  it('reads the shelf without a token, as any visitor would', async () => {
-    stub(200, [toRow(BOOK)]);
-    const result = await repo().list();
+  it('reads the shelf and maps rows back to models', async () => {
+    const { store, calls } = repo(okResult([toRow(BOOK)]));
+    const result = await store.list();
 
     expect(result.ok && result.value).toEqual([BOOK]);
-    expect(calls[0]?.url).toBe(`${BASE}/books?select=*`);
-    expect(calls[0]?.headers.Authorization).toBeUndefined();
+    expect(calls).toEqual([{ table: 'books', op: 'select', args: [] }]);
   });
 
   it('drops rows that no longer match the schema instead of crashing', async () => {
-    stub(200, [toRow(BOOK), { id: 'broken', title: 'No status' }]);
-    const result = await repo().list();
+    const { store } = repo(okResult([toRow(BOOK), { id: 'broken', title: 'No status' }]));
+    const result = await store.list();
     expect(result.ok && result.value).toHaveLength(1);
   });
 
+  it('refuses to believe a non-array is a shelf', async () => {
+    const { store } = repo(okResult({ not: 'an array' }));
+    const result = await store.list();
+    expect(!result.ok && result.error.kind).toBe('invalid_response');
+  });
+
   it('upserts on save, so a second save is an edit rather than a clash', async () => {
-    stub(201);
-    const result = await repo().save(BOOK);
+    const { store, calls } = repo(okResult());
+    const result = await store.save(BOOK);
 
     expect(result.ok).toBe(true);
-    expect(calls[0]?.method).toBe('POST');
-    expect(calls[0]?.headers.Prefer).toContain('merge-duplicates');
-    expect(calls[0]?.body).toEqual([toRow(BOOK)]);
+    expect(calls[0]?.op).toBe('upsert');
+    expect(calls[0]?.args[0]).toEqual([toRow(BOOK)]);
   });
 
-  it('sends the owner token when there is one', async () => {
-    stub(201);
-    await repo(() => 'jwt-123').save(BOOK);
-    expect(calls[0]?.headers.Authorization).toBe('Bearer jwt-123');
-  });
-
-  it('asks for the token per call, so an expired one is never reused', async () => {
-    // Data API JWTs last about fifteen minutes.
-    const tokens = ['first', 'second'];
-    stub(201);
-    const store = repo(() => tokens.shift());
-    await store.save(BOOK);
-    await store.save(BOOK);
-    expect(calls.map((c) => c.headers.Authorization)).toEqual(['Bearer first', 'Bearer second']);
-  });
-
-  it('filters a delete by id, and never sends an unfiltered one', async () => {
-    stub(204);
-    await repo().remove('book/1');
-    expect(calls[0]?.method).toBe('DELETE');
-    expect(calls[0]?.url).toBe(`${BASE}/books?id=eq.book%2F1`);
-
-    stub(204);
-    await repo().clear();
-    expect(calls[0]?.url).toContain('id=not.is.null');
-  });
-
-  it('survives a 204 with no body', async () => {
-    stub(204);
-    const result = await repo().remove('book_1');
-    expect(result.ok).toBe(true);
-  });
-
-  it('calls a refused write what it is, rather than an outage', async () => {
-    stub(403);
-    const result = await repo().save(BOOK);
-    expect(!result.ok && result.error.kind).toBe('forbidden');
-  });
-
-  it('reports anything else as a persistence failure', async () => {
-    stub(500);
-    const result = await repo().list();
-    expect(!result.ok && result.error.kind).toBe('persistence');
+  it('sends every book in one upsert', async () => {
+    const { store, calls } = repo(okResult());
+    await store.saveMany([BOOK, { ...BOOK, id: 'book_2' }]);
+    expect((calls[0]?.args[0] as unknown[]).length).toBe(2);
   });
 
   it('does not call out at all for an empty saveMany', async () => {
-    stub(201);
-    const result = await repo().saveMany([]);
+    const { store, calls } = repo(okResult());
+    const result = await store.saveMany([]);
     expect(result.ok).toBe(true);
     expect(calls).toHaveLength(0);
   });
 
-  it('tolerates a trailing slash on the configured base url', async () => {
-    stub(200, []);
-    await new NeonRepository<Book>('books', isBook, { baseUrl: `${BASE}/` }).list();
-    expect(calls[0]?.url).toBe(`${BASE}/books?select=*`);
+  it('filters a delete by id', async () => {
+    const { store, calls } = repo(okResult());
+    await store.remove('book_1');
+    expect(calls[0]).toEqual({ table: 'books', op: 'delete.eq', args: ['id', 'book_1'] });
+  });
+
+  it('never sends an unfiltered delete, which PostgREST would refuse anyway', async () => {
+    const { store, calls } = repo(okResult());
+    await store.clear();
+    expect(calls[0]).toEqual({ table: 'books', op: 'delete.not', args: ['id', 'is', null] });
+  });
+
+  it('calls a write the database refused on privileges what it is', async () => {
+    // 42501 is RLS saying no, which means "not the owner", not "outage".
+    const { store } = repo(failResult('42501'));
+    const result = await store.save(BOOK);
+    expect(!result.ok && result.error.kind).toBe('forbidden');
+  });
+
+  it('treats an expired token as something to sign in again for', async () => {
+    const { store } = repo(failResult('PGRST301'));
+    const result = await store.save(BOOK);
+    expect(!result.ok && result.error.kind).toBe('forbidden');
+    expect(!result.ok && result.error.message).toContain('expired');
+  });
+
+  it('reports anything else as a persistence failure', async () => {
+    const { store } = repo(failResult(null));
+    const result = await store.list();
+    expect(!result.ok && result.error.kind).toBe('persistence');
+  });
+
+  it('survives the client throwing rather than returning an error', async () => {
+    const { store } = repo(() => {
+      throw new Error('AuthRequiredError');
+    });
+    const result = await store.list();
+    expect(!result.ok && result.error.kind).toBe('persistence');
   });
 });
