@@ -12,8 +12,7 @@ import {
 } from '@/components/library';
 import { SuggestionsPanel } from '@/components/suggestions';
 import { ErrorNote, LoadingVeil } from '@/components/ui';
-import { useIsCoarsePointer, useLibraryBootstrap, useReducedMotion } from '@/hooks';
-import { authAvailable } from '@/services/neon';
+import { useIsCoarsePointer, useLibraryBootstrap, useReducedMotion, useSignInHash } from '@/hooks';
 import { selectCanEdit, useAuthStore } from '@/stores/authStore';
 import { LibraryCanvas, LibraryScene } from '@/three';
 import { selectCurrentlyReading, selectShelvedBooks, useLibraryStore } from '@/stores/libraryStore';
@@ -55,9 +54,6 @@ export const App = () => {
   const signedIn = useAuthStore((state) => state.session !== undefined);
   const restoreSession = useAuthStore((state) => state.restore);
   const endSession = useAuthStore((state) => state.signOut);
-  // Probed once, like WebGL: whether the library is backed by a database at all
-  // cannot change for the life of the document.
-  const [canSignIn] = useState(authAvailable);
 
   const books = useLibraryStore((state) => state.books);
   const libraryError = useLibraryStore((state) => state.error);
@@ -136,6 +132,10 @@ export const App = () => {
     void restoreSession();
   }, [restoreSession]);
 
+  // The owner's unadvertised way in. Nothing on screen points at it.
+  const requestSignIn = useCallback(() => openOverlay('sign-in'), [openOverlay]);
+  useSignInHash(requestSignIn);
+
   useEffect(() => {
     if (!lockRefused) return;
     const timer = setTimeout(() => setLockRefused(false), TOAST_MS);
@@ -188,9 +188,7 @@ export const App = () => {
         canUse3D={canUse3D}
         compact={coarsePointer}
         canEdit={canEdit}
-        showSignIn={canSignIn}
         signedIn={signedIn}
-        onOpenSignIn={() => openOverlay('sign-in')}
         onSignOut={() => void endSession()}
         activeTab={activeTab}
         onSelectTab={selectTab}

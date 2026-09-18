@@ -37,10 +37,13 @@ export interface LibraryHudProps {
    * what is worth showing.
    */
   canEdit?: boolean;
-  /** Whether signing in means anything, i.e. the library is backed by Neon. */
-  showSignIn?: boolean;
+  /**
+   * True when the owner is signed in, which is the ONLY case where any auth
+   * control appears. There is deliberately no "Sign in" affordance: a visitor
+   * to a personal library has nothing to sign in to, and a login link on it is
+   * clutter that also invites poking. The owner reaches the form at `#signin`.
+   */
   signedIn?: boolean;
-  onOpenSignIn?: () => void;
   onSignOut?: () => void;
   /** Which tab is lit. Only meaningful when `compact`. */
   activeTab?: HudTab;
@@ -126,9 +129,7 @@ export const LibraryHud = ({
   hint,
   compact = false,
   canEdit = true,
-  showSignIn = false,
   signedIn = false,
-  onOpenSignIn,
   onSignOut,
   activeTab = 'library',
   onSelectTab,
@@ -172,11 +173,11 @@ export const LibraryHud = ({
                     />
                   </div>
                 )}
-                {showSignIn && (
+                {signedIn && (
                   <Button
                     variant="quiet"
-                    aria-label={signedIn ? 'Sign out' : 'Sign in as the owner'}
-                    onClick={signedIn ? onSignOut : onOpenSignIn}
+                    aria-label="Sign out"
+                    onClick={onSignOut}
                     className="rounded-full border border-ink-600/70 bg-ink-800/70 backdrop-blur-sm"
                   >
                     <KeyIcon className="h-4.5 w-4.5" />
@@ -207,9 +208,9 @@ export const LibraryHud = ({
                     {viewMode === 'explore' ? 'List view' : 'Walk around'}
                   </Button>
                 )}
-                {showSignIn && (
-                  <Button variant="quiet" onClick={signedIn ? onSignOut : onOpenSignIn}>
-                    {signedIn ? 'Sign out' : 'Sign in'}
+                {signedIn && (
+                  <Button variant="quiet" onClick={onSignOut}>
+                    Sign out
                   </Button>
                 )}
                 <Button variant="quiet" aria-label="How this works" onClick={onOpenHelp}>

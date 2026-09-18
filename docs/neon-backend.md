@@ -120,6 +120,26 @@ Two things in it are worth knowing without opening it:
   never sends it and cannot get it wrong. That is also why the file has two
   steps: your user id does not exist until you have signed in once.
 
+## Signing in
+
+There is no sign-in link anywhere in the interface, on purpose. A personal
+library has exactly one account, so a login control is clutter on a page where
+no visitor has anything to sign in to, and it invites poking at the one door.
+
+The owner opens the form at **`/#signin`**. Worth bookmarking, because nothing
+on screen points at it.
+
+This is not a security measure and is not relied on as one. Anyone who guesses
+the fragment finds a password form, exactly as they would on any login page; the
+password and Row-Level Security are what protect the library. The fragment is
+stripped from the URL once acted on, so a reload or a shared link does not keep
+reopening the form.
+
+Once signed in, a `Sign out` control appears. That one is safe to show, because
+only the owner ever sees it. There is deliberately no sign-up form: the single
+account is created in the Neon console, because an account anyone can create
+turns a personal library into a shared one by accident.
+
 ## Want-to-read books are public
 
 Decided: yes. That means `books_public_read` stays `using (true)` and no policy
