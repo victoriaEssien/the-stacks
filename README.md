@@ -24,7 +24,8 @@ placement, search, persistence and suggestion box are all wired up end to end so
 the project runs from the first commit — but everything is intentionally plain
 and waiting to be built out against `docs/SPEC.md`.
 
-- Click the canvas to look around, `W A S D` to walk, `Esc` to release the cursor.
+- Click the canvas to look around, `W A S D` to walk, `C` to kneel at the lower
+  shelves, `Esc` to release the cursor.
 - `+ Add book` searches Google Books (Open Library as a fallback) and shelves it.
 - Click a book to open its panel; edit your rating, dates, thoughts and quote.
 - Click the brass box on the stand to leave or read a suggestion.

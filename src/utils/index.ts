@@ -7,4 +7,5 @@ export * from './bookDimensions';
 export * from './coverFallback';
 export * from './collision';
 export * from './roomLayout';
+export * from './posture';
 export * from './webgl';

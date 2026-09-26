@@ -6,6 +6,7 @@ import {
   Fab,
   HelpIcon,
   KeyIcon,
+  KneelIcon,
   MailIcon,
   PlusIcon,
   StarIcon,
@@ -48,6 +49,9 @@ export interface LibraryHudProps {
   /** Which tab is lit. Only meaningful when `compact`. */
   activeTab?: HudTab;
   onSelectTab?: (tab: HudTab) => void;
+  /** Down at the lower shelves. Only offered as a button when `compact`. */
+  kneeling?: boolean;
+  onToggleKneel?: () => void;
   onAddBook: () => void;
   onOpenSuggestions: () => void;
   onOpenStats: () => void;
@@ -110,6 +114,28 @@ const Segment = ({
 );
 
 /**
+ * Kneeling, on touch. A button because no gesture says "get down": a drag
+ * already looks and a pinch already leans in. It sits opposite the add button,
+ * under the other thumb. A pointer kneels with C instead, and could not click
+ * this anyway while the room holds the mouse.
+ */
+const KneelToggle = ({ pressed, onClick }: { pressed: boolean; onClick: () => void }) => (
+  <button
+    type="button"
+    aria-pressed={pressed}
+    onClick={onClick}
+    className={`pointer-events-auto flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm backdrop-blur-sm transition-colors ${
+      pressed
+        ? 'border-brass bg-brass text-ink-900'
+        : 'border-ink-600/70 bg-ink-800/70 text-parchment'
+    }`}
+  >
+    <KneelIcon className="h-4.5 w-4.5" />
+    Kneel
+  </button>
+);
+
+/**
  * Everything overlaid on the scene. `pointer-events-none` on the wrapper so the
  * 3D canvas keeps receiving clicks everywhere the HUD is not.
  *
@@ -133,6 +159,8 @@ export const LibraryHud = ({
   onSignOut,
   activeTab = 'library',
   onSelectTab,
+  kneeling = false,
+  onToggleKneel,
   onAddBook,
   onOpenSuggestions,
   onOpenStats,
@@ -142,6 +170,7 @@ export const LibraryHud = ({
   // The other tabs bring their own header and own the screen; the room's
   // floating chrome would sit on top of it.
   const onLibrary = !compact || activeTab === 'library';
+  const kneel = compact && viewMode === 'explore' ? onToggleKneel : undefined;
 
   return (
     <div className="inset-safe pointer-events-none fixed inset-0 z-30">
@@ -235,11 +264,14 @@ export const LibraryHud = ({
             </p>
           )}
 
-          {compact && onLibrary && canEdit && (
-            <div className="flex w-full justify-end pb-1 pr-1">
-              <Fab label="Add a book" onClick={onAddBook}>
-                <PlusIcon className="h-6 w-6" />
-              </Fab>
+          {compact && onLibrary && (kneel || canEdit) && (
+            <div className="flex w-full items-center justify-between px-1 pb-1">
+              {kneel ? <KneelToggle pressed={kneeling} onClick={kneel} /> : <span />}
+              {canEdit && (
+                <Fab label="Add a book" onClick={onAddBook}>
+                  <PlusIcon className="h-6 w-6" />
+                </Fab>
+              )}
             </div>
           )}
 

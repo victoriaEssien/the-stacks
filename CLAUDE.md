@@ -79,8 +79,9 @@ These come from the spec's agent instructions. Do not quietly break them.
     `App` picks `pointer-lock` or `touch` from `useIsCoarsePointer` and passes it
     to `LibraryScene`, which mounts `PlayerControls` or `TouchControls`. Neither
     knows about the other. Everything they share - collision, the room plan, the
-    shelf layout - is pure and does not care what is driving the camera, so a
-    third scheme (a gamepad, say) is one more sibling and no edits elsewhere.
+    shelf layout, posture - is pure and does not care what is driving the
+    camera, so a third scheme (a gamepad, say) is one more sibling and no edits
+    elsewhere.
 
 11. **`api/` is ours, and it is the only server there is.** Two Vercel
     functions: `api/cover.ts` and `api/search.ts`. Four rules keep them working.
@@ -291,6 +292,27 @@ of them and the symptom comes straight back.
   remounting child's in — not a thing to bet picking on. A reference comparison
   per frame cannot be raced. If picking ever starts opening the wrong book, look
   here first.
+
+## Kneeling
+
+- **Standing, the bottom shelf is unreadable, not merely low.** From as close
+  as collision allows, a standing eye meets the middle of a bottom-shelf cover
+  about 75 degrees down, and the board above hides up to a third of it.
+  `utils/posture.ts` kneels the eye to 0.6 m, where the same cover is under 50
+  degrees and nearly all visible. `posture.test.ts` measures that against the
+  REAL shelf, board and book-size constants, so a change that makes kneeling
+  stop helping fails a test rather than going unnoticed.
+- **`C` on a pointer, a HUD button on touch.** Not Ctrl, the other crouch key:
+  W walks, and Ctrl+W closes the tab. A toggle rather than a held key, because
+  the point is to stay down while walking a shelf and clicking its books. The
+  key is only live while no panel is open, so a C typed into the search box
+  does not drop the reader behind the dialog. Touch gets `KneelToggle` because
+  no gesture says "get down" and the pinch is already spoken for.
+- `kneeling` lives in `uiStore` so the HUD button and the camera agree, and
+  `setViewMode` clears it: coming back to the room re-spawns the reader at the
+  entrance, and they should arrive on their feet. The camera eases through
+  `stepPosture` (smoothstep, reversible halfway down, a cut under reduced
+  motion), and walking slows to half pace on the knees.
 
 ## The room is furnished as a library
 

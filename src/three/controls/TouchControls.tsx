@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { clampToRoom, moveWithCollisions } from '@/utils/collision';
+import { eyeHeightFor, paceFor, STANDING_EYE_HEIGHT, stepPosture } from '@/utils/posture';
 import type { Footprint } from '@/utils/roomLayout';
 import {
   clampPitch,
@@ -18,7 +19,10 @@ import type { TouchNavState } from './touchNav';
 export interface TouchControlsProps {
   /** Controls stand down while a 2D overlay is open. */
   enabled?: boolean;
+  /** Standing eye level. Kneeling goes to `KNEELING_EYE_HEIGHT` whatever this is. */
   eyeHeight?: number;
+  /** Down at the lower shelves. The camera eases there rather than cutting. */
+  kneeling?: boolean;
   /** The walls the reader is kept inside. */
   room: { width: number; depth: number };
   /** Furniture the reader cannot walk through. */
@@ -57,11 +61,13 @@ const scratch: Point2D = { x: 0, y: 0 };
  *   pinch  lean in, so a spine is readable without walking into the shelf
  *
  * Deliberately no on-screen joystick: it fills a quarter of a small screen with
- * the one thing on it that is not the library.
+ * the one thing on it that is not the library. Kneeling is the HUD's button,
+ * since no gesture says "get down" and the pinch is already spoken for.
  */
 export const TouchControls = ({
   enabled = true,
-  eyeHeight = 1.62,
+  eyeHeight = STANDING_EYE_HEIGHT,
+  kneeling = false,
   room,
   obstacles = [],
   radius = 0.34,
@@ -82,6 +88,8 @@ export const TouchControls = ({
   const gestureStart = useRef<Point2D>({ x: 0, y: 0 });
   const pinch = useRef<{ span: number; fov: number } | null>(null);
   const spawned = useRef(false);
+  /** 0 standing, 1 kneeling - see `stepPosture`. */
+  const posture = useRef(0);
 
   /** The ring dropped where the reader tapped, and how much of it is left. */
   const ringRef = useRef<THREE.Mesh>(null);
@@ -190,6 +198,10 @@ export const TouchControls = ({
     const delta = Math.min(rawDelta, 0.1);
     camera.quaternion.setFromEuler(look.current);
 
+    // Every frame, not only while walking: the reader kneels where they stand.
+    posture.current = stepPosture(posture.current, kneeling, delta, reducedMotion);
+    camera.position.y = eyeHeightFor(posture.current, eyeHeight);
+
     const destination = nav.current.destination;
 
     // A new destination drops a ring on the floor, so the tap is visibly the
@@ -222,7 +234,7 @@ export const TouchControls = ({
     // Eases out over the last metre or so, but never travels faster than a
     // walk - otherwise a tap across the room starts as a lurch.
     const eased = reducedMotion ? remaining : remaining * (1 - Math.exp(-ARRIVE_DAMPING * delta));
-    const scale = Math.min(eased, WALK_SPEED * delta) / remaining;
+    const scale = Math.min(eased, WALK_SPEED * paceFor(posture.current) * delta) / remaining;
 
     const wanted = clampToRoom(
       {
@@ -233,7 +245,7 @@ export const TouchControls = ({
       radius,
     );
     const next = moveWithCollisions(from, wanted, obstacles, radius);
-    camera.position.set(next.x, eyeHeight, next.z);
+    camera.position.set(next.x, camera.position.y, next.z);
 
     // Something is in the way. Give up rather than grinding against it for as
     // long as the destination stands.

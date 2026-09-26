@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { AdaptiveDpr, Preload } from '@react-three/drei';
+import { STANDING_EYE_HEIGHT } from '@/utils/posture';
 
 export interface LibraryCanvasProps {
   children: ReactNode;
@@ -36,7 +37,7 @@ export const LibraryCanvas = ({
     // A phone is capped harder still - a 3x screen at 1.75 is 27x the pixels of
     // a 1x one, and the room is dim and soft-edged enough not to miss them.
     dpr={lowPower ? [1, 1.25] : [1, 1.75]}
-    camera={{ position: [0, 1.62, 3.2], fov: 62, near: 0.05, far: 60 }}
+    camera={{ position: [0, STANDING_EYE_HEIGHT, 3.2], fov: 62, near: 0.05, far: 60 }}
     // Multisampling is the first thing to go when fill rate is the budget.
     gl={{ antialias: !lowPower, powerPreference: 'high-performance' }}
     onCreated={({ gl }) => {

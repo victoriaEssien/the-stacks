@@ -37,8 +37,9 @@ const TOUCH_HINT = 'Drag to look · tap the floor to walk · tap a book to open 
 /** Shown until the reader clicks the room and the browser hands over the mouse. */
 const POINTER_HINT = (
   <>
-    Click, then move the mouse to look around · <kbd className="text-parchment">W A S D</kbd> to
-    walk ·<kbd className="ml-1 text-parchment">Esc</kbd> to release the cursor
+    Click, then move the mouse to look around&nbsp;· <kbd className="text-parchment">W A S D</kbd>{' '}
+    to walk&nbsp;· <kbd className="text-parchment">C</kbd> to kneel&nbsp;·{' '}
+    <kbd className="text-parchment">Esc</kbd> to release the cursor
   </>
 );
 
@@ -72,6 +73,8 @@ export const App = () => {
   const selectedBookId = useUiStore((state) => state.selectedBookId);
   const viewMode = useUiStore((state) => state.viewMode);
   const pointerLocked = useUiStore((state) => state.pointerLocked);
+  const kneeling = useUiStore((state) => state.kneeling);
+  const toggleKneeling = useUiStore((state) => state.toggleKneeling);
   const openOverlay = useUiStore((state) => state.openOverlay);
   const closeOverlay = useUiStore((state) => state.closeOverlay);
   const selectBook = useUiStore((state) => state.selectBook);
@@ -179,6 +182,8 @@ export const App = () => {
               suggestionToken={suggestionToken}
               controlsEnabled={!overlayOpen}
               navigation={navigation}
+              kneeling={kneeling}
+              onToggleKneel={toggleKneeling}
               reducedMotion={reducedMotion}
               onSelectBook={selectBook}
               onHoverBook={hoverBook}
@@ -204,6 +209,8 @@ export const App = () => {
         onSignOut={() => void endSession()}
         activeTab={activeTab}
         onSelectTab={selectTab}
+        kneeling={kneeling}
+        onToggleKneel={toggleKneeling}
         hint={
           effectiveMode !== 'explore'
             ? undefined

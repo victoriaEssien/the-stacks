@@ -43,6 +43,10 @@ export interface LibrarySceneProps {
   suggestionToken?: number;
   controlsEnabled: boolean;
   navigation?: NavigationScheme;
+  /** Down at the lower shelves rather than standing. */
+  kneeling?: boolean;
+  /** The reader pressed the kneel key. On touch the HUD's button does this instead. */
+  onToggleKneel?: () => void;
   reducedMotion?: boolean;
   onSelectBook: (bookId: string) => void;
   onHoverBook: (bookId: string | undefined) => void;
@@ -67,6 +71,8 @@ export const LibraryScene = ({
   suggestionToken,
   controlsEnabled,
   navigation = 'pointer-lock',
+  kneeling = false,
+  onToggleKneel,
   reducedMotion = false,
   onSelectBook,
   onHoverBook,
@@ -225,6 +231,7 @@ export const LibraryScene = ({
       {navigation === 'touch' ? (
         <TouchControls
           enabled={controlsEnabled}
+          kneeling={kneeling}
           room={room}
           obstacles={plan.obstacles}
           spawn={spawn}
@@ -234,6 +241,9 @@ export const LibraryScene = ({
       ) : (
         <PlayerControls
           enabled={controlsEnabled}
+          kneeling={kneeling}
+          onToggleKneel={onToggleKneel}
+          reducedMotion={reducedMotion}
           room={room}
           obstacles={plan.obstacles}
           spawn={spawn}

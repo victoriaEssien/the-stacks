@@ -78,6 +78,13 @@ export const CloseIcon = (props: IconProps) => (
   </Icon>
 );
 
+/** Kneel: down towards the floor, where the lowest shelf is. */
+export const KneelIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M12 4.4v10.8M7.4 10.8l4.6 4.6 4.6-4.6M4.8 19.6h14.4" />
+  </Icon>
+);
+
 /** Owner sign-in. A key, because this is about who holds the library. */
 export const KeyIcon = (props: IconProps) => (
   <Icon {...props}>

@@ -3,13 +3,20 @@ import { PointerLockControls } from '@react-three/drei';
 import { useFrame, useThree, type EventManager } from '@react-three/fiber';
 import * as THREE from 'three';
 import { clampToRoom, moveWithCollisions } from '@/utils/collision';
+import { eyeHeightFor, paceFor, STANDING_EYE_HEIGHT, stepPosture } from '@/utils/posture';
 import type { Footprint } from '@/utils/roomLayout';
 
 export interface PlayerControlsProps {
   /** Controls stand down while a 2D overlay is open. */
   enabled?: boolean;
   speed?: number;
+  /** Standing eye level. Kneeling goes to `KNEELING_EYE_HEIGHT` whatever this is. */
   eyeHeight?: number;
+  /** Down at the lower shelves. The camera eases there rather than cutting. */
+  kneeling?: boolean;
+  /** The reader pressed the kneel key. Whoever owns `kneeling` flips it. */
+  onToggleKneel?: () => void;
+  reducedMotion?: boolean;
   /** The walls the player is kept inside. */
   room: { width: number; depth: number };
   /** Furniture the player cannot walk through. */
@@ -46,6 +53,12 @@ const KEY_MAP: Record<string, keyof typeof NO_KEYS> = {
 };
 
 /**
+ * Not Ctrl, the other key games crouch on: W is how the reader walks, and
+ * Ctrl+W closes the tab.
+ */
+const KNEEL_KEY = 'KeyC';
+
+/**
  * First-person WASD + pointer-lock navigation. Movement is frame-rate
  * independent, damped so the camera glides rather than snaps, and resolved
  * against the furniture so you cannot walk through a bookcase.
@@ -53,7 +66,10 @@ const KEY_MAP: Record<string, keyof typeof NO_KEYS> = {
 export const PlayerControls = ({
   enabled = true,
   speed = 2.6,
-  eyeHeight = 1.62,
+  eyeHeight = STANDING_EYE_HEIGHT,
+  kneeling = false,
+  onToggleKneel,
+  reducedMotion = false,
   room,
   obstacles = [],
   radius = 0.34,
@@ -67,6 +83,8 @@ export const PlayerControls = ({
   const keys = useRef({ ...NO_KEYS });
   const velocity = useRef(new THREE.Vector3());
   const spawned = useRef(false);
+  /** 0 standing, 1 kneeling - see `stepPosture`. */
+  const posture = useRef(0);
 
   // Drop the player on a clear patch of floor. Only ever on the first frame -
   // the room deepening as books are added must not teleport anyone.
@@ -97,6 +115,25 @@ export const PlayerControls = ({
       window.removeEventListener('blur', onBlur);
     };
   }, []);
+
+  /**
+   * C to kneel, and C again to stand. A toggle rather than a key held down,
+   * because the point of kneeling is to stay down there while walking along a
+   * shelf and clicking the books on it.
+   *
+   * Only while no panel is open, so typing a title with a C in it does not drop
+   * the reader to the floor behind the dialog.
+   */
+  useEffect(() => {
+    if (!enabled || !onToggleKneel) return;
+    const onDown = (event: KeyboardEvent) => {
+      if (event.code !== KNEEL_KEY || event.repeat) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      onToggleKneel();
+    };
+    window.addEventListener('keydown', onDown);
+    return () => window.removeEventListener('keydown', onDown);
+  }, [enabled, onToggleKneel]);
 
   /**
    * Hand the cursor back the moment a panel opens, and KEEP handing it back
@@ -179,6 +216,7 @@ export const PlayerControls = ({
 
     const delta = Math.min(rawDelta, 0.1);
     const { forward: f, back: b, left: l, right: r } = keys.current;
+    posture.current = stepPosture(posture.current, kneeling, delta, reducedMotion);
 
     direction.set(Number(r) - Number(l), 0, Number(b) - Number(f));
     const moving = enabled && direction.lengthSq() > 0;
@@ -189,7 +227,7 @@ export const PlayerControls = ({
     forward.normalize();
     right.crossVectors(forward, camera.up).normalize();
 
-    const acceleration = moving ? speed * 10 : 0;
+    const acceleration = moving ? speed * paceFor(posture.current) * 10 : 0;
     velocity.current.x += (right.x * direction.x - forward.x * direction.z) * acceleration * delta;
     velocity.current.z += (right.z * direction.x - forward.z * direction.z) * acceleration * delta;
     velocity.current.multiplyScalar(Math.exp(-9 * delta));
@@ -207,7 +245,7 @@ export const PlayerControls = ({
     if (next.x !== wanted.x) velocity.current.x = 0;
     if (next.z !== wanted.z) velocity.current.z = 0;
 
-    camera.position.set(next.x, eyeHeight, next.z);
+    camera.position.set(next.x, eyeHeightFor(posture.current, eyeHeight), next.z);
   });
 
   /**

@@ -11,6 +11,7 @@ const POINTER_CONTROLS: [string, string][] = [
   ['Click the room', 'Hand the mouse to the library'],
   ['Move the mouse', 'Look around — up and down as well as left and right'],
   ['W A S D / arrows', 'Walk'],
+  ['C', 'Kneel, to read the lower shelves. C again to stand'],
   ['Click a book', 'Open what you wrote about it'],
   ['Click the mailbox', 'Read and leave suggestions'],
   ['Esc', 'Release the mouse, or close a panel'],
@@ -22,6 +23,7 @@ const TOUCH_CONTROLS: [string, string][] = [
   ['Tap a book', 'Open what you wrote about it'],
   ['Tap the mailbox', 'Read and leave suggestions'],
   ['Pinch', 'Lean in, to read a cover without walking into the shelf'],
+  ['Kneel', 'Get down to the lower shelves. Tap it again to stand'],
 ];
 
 /** What the room does, for anyone who would rather be told than guess. */
