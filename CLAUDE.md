@@ -128,7 +128,13 @@ These come from the spec's agent instructions. Do not quietly break them.
   everywhere EXCEPT the room**, so the edit form names the host and says what
   will happen rather than leaving it to be discovered. Adding a host is one line
   in `COVER_HOSTS`, and it applies to the client and the endpoint together
-  because both call `proxyableCoverUrl`.
+  because both call `proxyableCoverUrl`. `wordpress.com` went on for exactly
+  this reason: a small press title's only jacket online was on a book blog.
+- **Never add a host that fetches OTHER sites' images on request.** WordPress
+  serves resized images from `i0.wp.com`, but that is Photon, and
+  `i0.wp.com/<any host>/<path>` re-serves an image from anywhere. Listing it
+  would make the allowlist no list at all, which is why `wordpress.com` is on it
+  and `wp.com` is not. A test pins that.
 - Redirects are followed, because Open Library answers through two hops to
   archive.org. The hop targets are chosen by the upstream host and not by the
   caller, so this does not widen what the guard just decided.

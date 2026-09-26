@@ -44,9 +44,14 @@ export const coverUrlFromIsbn = (isbn: string, size: 'S' | 'M' | 'L'): string =>
  *
  * These are the places book covers actually live. The first three are the app's
  * own providers; the rest are where a cover the providers lack is usually found
- * (Wikimedia for the out of print, Amazon's CDN for everything Goodreads shows).
- * Adding one is a line here, and it applies to both the client and the endpoint
- * because both call `proxyableCoverUrl`.
+ * (Wikimedia for the out of print, Amazon's CDN for everything Goodreads shows,
+ * WordPress.com for the book blogs that are often the only place a small press
+ * title's jacket is online at all). Adding one is a line here, and it applies to
+ * both the client and the endpoint because both call `proxyableCoverUrl`.
+ *
+ * `wp.com` is deliberately NOT here, although WordPress serves resized images
+ * from it: `i0.wp.com/<any host>/<path>` is Photon, which fetches and re-serves
+ * an image from any site at all. Listing it would make this list meaningless.
  */
 export const COVER_HOSTS = [
   'books.google.com',
@@ -58,6 +63,7 @@ export const COVER_HOSTS = [
   'images-na.ssl-images-amazon.com',
   'i.gr-assets.com',
   's.gr-assets.com',
+  'wordpress.com',
 ] as const;
 
 const isCoverHost = (hostname: string): boolean =>

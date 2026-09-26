@@ -50,6 +50,17 @@ describe('proxyableCoverUrl', () => {
     expect(proxyableCoverUrl('https://i.imgur.com/abc.jpg')).toBeUndefined();
   });
 
+  it("accepts a jacket from a WordPress.com blog, where a small press title's often is", () => {
+    const blog =
+      'https://bnmagazineng.wordpress.com/wp-content/uploads/2015/09/forcados-214x300.jpg?w=144';
+    expect(proxyableCoverUrl(blog)?.href).toBe(blog);
+    expect(proxyableCoverUrl('https://someblog.files.wordpress.com/2015/09/x.jpg')).toBeDefined();
+  });
+
+  it("refuses WordPress's image CDN, which would fetch from any site on our behalf", () => {
+    expect(proxyableCoverUrl('https://i0.wp.com/example.com/anything.jpg')).toBeUndefined();
+  });
+
   it('is not fooled by a lookalike host', () => {
     for (const raw of [
       'https://books.google.com.example.test/x.jpg',
